@@ -1,0 +1,40 @@
+{
+  "name": "PluginSecure",
+  "version": "1.0.0",
+  "description": "Security plugin for Capacitor - Fake GPS detection & verified camera capture",
+  "platforms": ["android", "ios", "web"],
+  "methods": [
+    {
+      "name": "verifyGPS",
+      "returnType": "Promise<GPSVerificationResult>"
+    },
+    {
+      "name": "checkDeviceIntegrity",
+      "returnType": "Promise<DeviceIntegrityResult>"
+    },
+    {
+      "name": "captureVerifiedPhoto",
+      "options": "VerifiedPhotoOptions",
+      "returnType": "Promise<VerifiedPhotoResult>"
+    },
+    {
+      "name": "startGPSMonitoring",
+      "options": "{ intervalMs?: number }",
+      "returnType": "Promise<void>"
+    },
+    {
+      "name": "stopGPSMonitoring",
+      "returnType": "Promise<void>"
+    }
+  ],
+  "events": [
+    {
+      "name": "gpsMockDetected",
+      "data": "GPSVerificationResult"
+    },
+    {
+      "name": "deviceIntegrityChanged",
+      "data": "DeviceIntegrityResult"
+    }
+  ]
+}

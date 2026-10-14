@@ -1,0 +1,55 @@
+{
+  "name": "@al/pluginsecure",
+  "version": "1.0.0",
+  "description": "Fake GPS detection + verified camera capture for Capacitor apps",
+  "main": "dist/cjs/index.js",
+  "module": "dist/esm/index.js",
+  "types": "dist/esm/index.d.ts",
+  "files": [
+    "dist/",
+    "src/",
+    "capacitor-plugin.json",
+    "android/",
+    "ios/"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "capacitor",
+    "plugin",
+    "security",
+    "gps",
+    "camera",
+    "fake-gps",
+    "anti-spoofing"
+  ],
+  "author": "Saepul Alam <saepul.alam@example.com>",
+  "license": "MIT",
+  "peerDependencies": {
+    "@capacitor/core": "^2.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^4.5.0",
+    "@capacitor/core": "^2.0.0",
+    "@types/node": "^16.0.0"
+  },
+  "capacitor": {
+    "ios": {
+      "src": "src/ios"
+    },
+    "android": {
+      "src": "src/android"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Saepul-alam/plugin-capacitor.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Saepul-alam/plugin-capacitor/issues"
+  },
+  "homepage": "https://github.com/Saepul-alam/plugin-capacitor#readme"
+}
