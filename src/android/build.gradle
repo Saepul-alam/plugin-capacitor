@@ -4,8 +4,8 @@ plugins {
 }
 
 dependencies {
-    // Capacitor
-    implementation "com.getcapacitor:capacitor:2.5.0"
+    // Capacitor - use from host project
+    implementation project(':capacitor-android')
 
     // CameraX
     implementation "androidx.camera:camera-core:1.3.0"
