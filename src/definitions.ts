@@ -58,9 +58,9 @@ export interface PluginSecurePlugin {
   stopGPSMonitoring(): Promise<void>;
   captureVerifiedPhoto(options: VerifiedPhotoOptions): Promise<VerifiedPhotoResult>;
   checkDeviceIntegrity(): Promise<DeviceIntegrityResult>;
-  addListener(event: 'gpsMockDetected', callback: (data: GPSVerificationResult) => void): PluginListenerHandle;
-  addListener(event: 'deviceIntegrityChanged', callback: (data: DeviceIntegrityResult) => void): PluginListenerHandle;
-  removeAllListeners(): void;
+  addListener(event: 'gpsMockDetected', callback: (data: GPSVerificationResult) => void): Promise<PluginListenerHandle>;
+  addListener(event: 'deviceIntegrityChanged', callback: (data: DeviceIntegrityResult) => void): Promise<PluginListenerHandle>;
+  removeAllListeners(): Promise<void>;
 }
 
 export const PluginSecure = 'PluginSecure';

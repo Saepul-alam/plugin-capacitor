@@ -1,4 +1,4 @@
-import { WebPlugin, PluginListenerHandle, ListenerCallback } from '@capacitor/core';
+import { WebPlugin } from '@capacitor/core';
 import {
   PluginSecurePlugin,
   GPSVerificationResult,
@@ -42,13 +42,7 @@ export class PluginSecureWeb extends WebPlugin implements PluginSecurePlugin {
 
   async stopGPSMonitoring(): Promise<void> {}
 
-  addListener(eventName: string, listenerFunc: ListenerCallback): PluginListenerHandle {
-    return super.addListener(eventName, listenerFunc);
-  }
-
-  removeAllListeners(): void {
-    super.removeAllListeners();
-  }
+  // Inherit addListener and removeAllListeners from WebPlugin
 }
 
 const PluginSecure = new PluginSecureWeb();

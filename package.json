@@ -29,11 +29,11 @@
   "author": "Saepul Alam <saepul.alam@example.com>",
   "license": "MIT",
   "peerDependencies": {
-    "@capacitor/core": "^2.0.0"
+    "@capacitor/core": ">=2.0.0 <5.0.0"
   },
   "devDependencies": {
     "typescript": "^4.5.0",
-    "@capacitor/core": "^2.0.0",
+    "@capacitor/core": "^3.9.0",
     "@types/node": "^16.0.0"
   },
   "capacitor": {
