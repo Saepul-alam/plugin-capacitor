@@ -21,33 +21,6 @@ class PluginSecurePlugin : Plugin() {
     private var cameraCall: PluginCall? = null
     private val REQUEST_CODE_CAMERA = 1001
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == REQUEST_CODE_CAMERA) {
-            cameraCall?.let { call ->
-                if (resultCode == Activity.RESULT_OK && data != null) {
-                    val resultStr = data.getStringExtra("result")
-                    val error = data.getStringExtra("error")
-                    if (error != null) {
-                        call.reject(error)
-                    } else if (resultStr != null) {
-                        try {
-                            call.resolve(JSONObject(resultStr))
-                        } catch (e: Exception) {
-                            call.reject("Failed to parse result: ${e.message}")
-                        }
-                    } else {
-                        call.reject("No result data")
-                    }
-                } else {
-                    val error = data?.getStringExtra("error") ?: "Camera cancelled"
-                    call.reject(error)
-                }
-                cameraCall = null
-            }
-        }
-    }
-
     @PluginMethod
     fun verifyGPS(call: PluginCall) {
         val result = gpsHelper.verifyGPS()
