@@ -36,5 +36,11 @@
       "name": "deviceIntegrityChanged",
       "data": "DeviceIntegrityResult"
     }
-  ]
+  ],
+  "ios": {
+    "src": "src/ios"
+  },
+  "android": {
+    "src": "src/android"
+  }
 }
