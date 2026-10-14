@@ -1,6 +1,6 @@
 {
   "name": "@al/pluginsecure",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Fake GPS detection + verified camera capture for Capacitor apps",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
