@@ -1,4 +1,6 @@
-apply plugin: 'com.android.library'
+plugins {
+    id 'com.android.library' version '7.0.0'
+}
 
 dependencies {
     // Capacitor - use from host project
