@@ -1,5 +1,5 @@
 Pod::Spec.new do |s|
-  s.name         = 'PluginSecure'
+  s.name         = 'AlPluginsecure'
   s.version      = '1.0.0'
   s.summary      = 'Security plugin for Capacitor - Fake GPS detection & verified camera'
   s.license      = 'MIT'
