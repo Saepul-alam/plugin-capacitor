@@ -181,7 +181,7 @@ class CameraVerifiedActivity : AppCompatActivity() {
         lensFacing = if (lensFacing == CameraSelector.LENS_FACING_BACK) {
             CameraSelector.LENS_FACING_FRONT
         } else {
-            CameraSelector.LENS_FACING_BACK
+            CameraSelector.LENS_FACING_FRONT
         }
         bindCameraUseCases()
     }
