@@ -3,16 +3,18 @@ package com.al.pluginsecure
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
-import com.getcapacitor.*
-import com.getcapacitor.annotation.CapacitorPlugin
-import com.getcapacitor.annotation.PluginMethod
+import com.getcapacitor.JSObject
+import com.getcapacitor.NativePlugin
+import com.getcapacitor.Plugin
+import com.getcapacitor.PluginCall
+import com.getcapacitor.PluginMethod
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
-@CapacitorPlugin(name = "PluginSecure")
+@NativePlugin
 class PluginSecurePlugin : Plugin() {
     private val gpsHelper = GPSVerificationHelper(context)
     private var monitoringJob: Job? = null

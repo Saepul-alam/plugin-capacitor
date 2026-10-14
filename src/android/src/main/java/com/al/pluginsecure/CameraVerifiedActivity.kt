@@ -1,6 +1,7 @@
 package com.al.pluginsecure
 
 import android.Manifest
+import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -21,6 +22,10 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import com.getcapacitor.JSObject
+import com.getcapacitor.NativePlugin
+import com.getcapacitor.Plugin
+import com.getcapacitor.PluginCall
+import com.getcapacitor.PluginMethod
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationServices
@@ -35,6 +40,7 @@ import java.util.Date
 import java.util.Locale
 import java.util.concurrent.Executors
 
+@NativePlugin
 class CameraVerifiedActivity : AppCompatActivity() {
     private val TAG = "CameraVerifiedActivity"
     private val cameraExecutor = Executors.newSingleThreadExecutor()
@@ -268,22 +274,22 @@ class CameraVerifiedActivity : AppCompatActivity() {
 
         if (options?.resultType == "base64" || options?.resultType == "dataUrl") {
             cameraScope.launch {
-                val base64 = photoFile.readBytes().encodeToString()
+                val base64 = android.util.Base64.encodeToString(photoFile.readBytes(), android.util.Base64.DEFAULT)
                 runOnUiThread {
                     if (options?.resultType == "base64") result.put("base64", base64)
                     else result.put("dataUrl", "data:image/jpeg;base64,$base64")
-                    setResult(RESULT_OK, Intent().putExtra("result", result.toString()))
+                    setResult(Activity.RESULT_OK, Intent().putExtra("result", result.toString()))
                     finish()
                 }
             }
         } else {
-            setResult(RESULT_OK, Intent().putExtra("result", result.toString()))
+            setResult(Activity.RESULT_OK, Intent().putExtra("result", result.toString()))
             finish()
         }
     }
 
     private fun finishWithError(message: String) {
-        setResult(RESULT_CANCELED, Intent().putExtra("error", message))
+        setResult(Activity.RESULT_CANCELED, Intent().putExtra("error", message))
         finish()
     }
 
