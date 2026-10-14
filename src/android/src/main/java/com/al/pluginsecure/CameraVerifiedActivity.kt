@@ -268,7 +268,7 @@ class CameraVerifiedActivity : AppCompatActivity() {
 
         if (options?.resultType == "base64" || options?.resultType == "dataUrl") {
             cameraScope.launch {
-                val base64 = photoFile.readBytes().encodeToBase64()
+                val base64 = photoFile.readBytes().encodeToString()
                 runOnUiThread {
                     if (options?.resultType == "base64") result.put("base64", base64)
                     else result.put("dataUrl", "data:image/jpeg;base64,$base64")
