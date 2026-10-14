@@ -9,6 +9,7 @@
     "dist/",
     "src/",
     "capacitor-plugin.json",
+    "AlPluginsecure.podspec",
     "android/",
     "ios/"
   ],
