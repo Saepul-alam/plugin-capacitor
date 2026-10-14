@@ -1,3 +1,6 @@
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+
 dependencies {
     // Capacitor
     implementation "com.getcapacitor:capacitor:2.5.0"
