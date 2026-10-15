@@ -10,6 +10,7 @@ import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationServices
 import com.getcapacitor.JSObject
+import kotlinx.coroutines.tasks.await
 import java.io.File
 import java.util.concurrent.TimeUnit
 
