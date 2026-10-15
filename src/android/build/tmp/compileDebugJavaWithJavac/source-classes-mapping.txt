@@ -1,0 +1,2 @@
+com/al/pluginsecure/BuildConfig.java
+ com.al.pluginsecure.BuildConfig

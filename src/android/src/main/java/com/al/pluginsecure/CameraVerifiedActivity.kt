@@ -41,7 +41,10 @@ import java.util.Date
 import java.util.Locale
 import java.util.concurrent.Executors
 
-@NativePlugin
+// No @NativePlugin here: this is an Activity, not a plugin. It is launched with
+// startActivityForResult() by PluginSecurePlugin. Leaving the annotation on it makes
+// Capacitor 3's CLI regex (`^@(?:CapacitorPlugin|NativePlugin)[\s\S]+?class ([\w]+)`)
+// register the Activity as a plugin, which crashes at startup with ClassCastException.
 class CameraVerifiedActivity : AppCompatActivity() {
     private val TAG = "CameraVerifiedActivity"
     private val cameraExecutor = Executors.newSingleThreadExecutor()
@@ -145,15 +148,21 @@ class CameraVerifiedActivity : AppCompatActivity() {
     }
 
     private fun startCamera() {
-        cameraScope.launch {
+        // ProcessCameraProvider.getInstance() returns a Guava ListenableFuture, not a
+        // com.google.android.gms.tasks.Task, so kotlinx.coroutines.tasks.await() does not
+        // apply to it (receiver type mismatch). Attach a listener instead, the same way
+        // BarcodeScanActivity does it. The listener runs on the main executor, which is
+        // also what CameraX requires to bind use cases.
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
+        cameraProviderFuture.addListener({
             try {
-                cameraProvider = ProcessCameraProvider.getInstance(this@CameraVerifiedActivity).await()
+                cameraProvider = cameraProviderFuture.get()
                 bindCameraUseCases()
             } catch (e: Exception) {
                 Log.e(TAG, "Camera start failed", e)
-                runOnUiThread { finishWithError("Camera initialization failed") }
+                finishWithError("Camera initialization failed")
             }
-        }
+        }, ContextCompat.getMainExecutor(this))
     }
 
     private fun bindCameraUseCases() {
