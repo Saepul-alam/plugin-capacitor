@@ -11,12 +11,16 @@ public class PluginSecurePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "checkDeviceIntegrity", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "captureVerifiedPhoto", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "startGPSMonitoring", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "stopGPSMonitoring", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "stopGPSMonitoring", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "checkBiometricAvailability", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "authenticateBiometric", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "scanBarcode", returnType: CAPPluginReturnPromise)
     ]
 
     private let gpsHelper = GPSVerificationHelper()
     private var monitoringTimer: Timer?
     private var cameraCall: CAPPluginCall?
+    private var barcodeCall: CAPPluginCall?
 
     @objc func verifyGPS(_ call: CAPPluginCall) {
         let result = gpsHelper.verifyGPS()
@@ -33,6 +37,39 @@ public class PluginSecurePlugin: CAPPlugin, CAPBridgedPlugin {
         DispatchQueue.main.async {
             let vc = CameraVerifiedViewController()
             vc.options = call.options
+            vc.delegate = self
+            self.bridge?.viewController?.present(vc, animated: true)
+        }
+    }
+
+    @objc func checkBiometricAvailability(_ call: CAPPluginCall) {
+        let result = BiometricHelper.checkAvailability()
+        var ret: [String: Any] = [
+            "isAvailable": result.isAvailable,
+            "biometryType": result.biometryType
+        ]
+        if let reason = result.reason {
+            ret["reason"] = reason
+        }
+        call.resolve(ret)
+    }
+
+    @objc func authenticateBiometric(_ call: CAPPluginCall) {
+        let title = call.getString("title") ?? "Verifikasi Biometrik"
+        BiometricHelper.authenticate(reason: title) { success, error in
+            if success {
+                call.resolve(["success": true])
+            } else {
+                call.resolve(["success": false, "error": error ?? "Authentication failed"])
+            }
+        }
+    }
+
+    @objc func scanBarcode(_ call: CAPPluginCall) {
+        self.barcodeCall = call
+        DispatchQueue.main.async {
+            let vc = BarcodeScanViewController()
+            vc.promptText = call.getString("prompt")
             vc.delegate = self
             self.bridge?.viewController?.present(vc, animated: true)
         }
@@ -66,5 +103,25 @@ extension PluginSecurePlugin: CameraVerifiedDelegate {
     func didFailCapture(error: Error) {
         cameraCall?.reject(error.localizedDescription)
         cameraCall = nil
+    }
+}
+
+extension PluginSecurePlugin: BarcodeScanDelegate {
+    func didScanBarcode(content: String, format: String) {
+        barcodeCall?.resolve([
+            "hasContent": true,
+            "content": content,
+            "format": format
+        ])
+        barcodeCall = nil
+    }
+
+    func didCancelBarcodeScan() {
+        barcodeCall?.resolve([
+            "hasContent": false,
+            "content": "",
+            "format": "NONE"
+        ])
+        barcodeCall = nil
     }
 }

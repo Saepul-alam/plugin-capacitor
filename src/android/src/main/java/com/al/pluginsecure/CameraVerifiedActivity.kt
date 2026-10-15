@@ -33,6 +33,7 @@ import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.tasks.await
 import java.io.File
 import java.text.SimpleDateFormat
@@ -72,7 +73,8 @@ class CameraVerifiedActivity : AppCompatActivity() {
         setContentView(R.layout.activity_camera_verified)
 
         previewView = findViewById(R.id.previewView)
-        options = VerifiedPhotoOptions.fromJson(intent.getStringExtra("options") ?: "{}")
+        val optionsJson = intent.getStringExtra("options") ?: "{}"
+        options = VerifiedPhotoOptions.fromJson(optionsJson)
 
         if (options?.direction == "front") {
             lensFacing = CameraSelector.LENS_FACING_FRONT
@@ -181,7 +183,7 @@ class CameraVerifiedActivity : AppCompatActivity() {
         lensFacing = if (lensFacing == CameraSelector.LENS_FACING_BACK) {
             CameraSelector.LENS_FACING_FRONT
         } else {
-            CameraSelector.LENS_FACING_FRONT
+            CameraSelector.LENS_FACING_BACK
         }
         bindCameraUseCases()
     }

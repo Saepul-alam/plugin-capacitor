@@ -52,15 +52,50 @@ export interface DeviceIntegrityResult {
   details: string[];
 }
 
+export interface BiometricAvailabilityResult {
+  isAvailable: boolean;
+  biometryType: 'fingerprint' | 'face' | 'iris' | 'none';
+  reason?: string;
+}
+
+export interface BiometricAuthOptions {
+  title?: string;
+  subtitle?: string;
+  description?: string;
+  cancelButtonText?: string;
+}
+
+export interface BiometricAuthResult {
+  success: boolean;
+  error?: string;
+}
+
+export interface BarcodeScanOptions {
+  prompt?: string;
+  showTorchButton?: boolean;
+  formats?: string[];
+}
+
+export interface BarcodeScanResult {
+  hasContent: boolean;
+  content: string;
+  format: string;
+}
+
 export interface PluginSecurePlugin {
   verifyGPS(): Promise<GPSVerificationResult>;
   startGPSMonitoring(options?: { intervalMs?: number }): Promise<void>;
   stopGPSMonitoring(): Promise<void>;
   captureVerifiedPhoto(options: VerifiedPhotoOptions): Promise<VerifiedPhotoResult>;
   checkDeviceIntegrity(): Promise<DeviceIntegrityResult>;
-  addListener(event: 'gpsMockDetected', callback: (data: GPSVerificationResult) => void): Promise<PluginListenerHandle>;
-  addListener(event: 'deviceIntegrityChanged', callback: (data: DeviceIntegrityResult) => void): Promise<PluginListenerHandle>;
-  removeAllListeners(): Promise<void>;
+  checkBiometricAvailability(): Promise<BiometricAvailabilityResult>;
+  authenticateBiometric(options?: BiometricAuthOptions): Promise<BiometricAuthResult>;
+  scanBarcode(options?: BarcodeScanOptions): Promise<BarcodeScanResult>;
+  // Capacitor 2's WebPlugin returns the handle synchronously and removeAllListeners()
+  // returns void (dist/esm/web/index.d.ts:47,49). The Promise<> forms are Capacitor 3.
+  addListener(event: 'gpsMockDetected', callback: (data: GPSVerificationResult) => void): PluginListenerHandle;
+  addListener(event: 'deviceIntegrityChanged', callback: (data: DeviceIntegrityResult) => void): PluginListenerHandle;
+  removeAllListeners(): void;
 }
 
 export const PluginSecure = 'PluginSecure';

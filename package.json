@@ -8,15 +8,16 @@
   "files": [
     "dist/",
     "src/",
+    "scripts/",
     "capacitor-plugin.json",
-    "AlPluginsecure.podspec",
-    "android/",
-    "ios/"
+    "AlPluginsecure.podspec"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "rm -rf dist && npm run build:esm && npm run build:cjs",
+    "build:esm": "tsc -p tsconfig.json",
+    "build:cjs": "tsc -p tsconfig.json --module commonjs --outDir dist/cjs --declaration false --declarationMap false",
     "watch": "tsc --watch",
-    "prepublishOnly": "npm run build"
+    "prepare": "npm run build"
   },
   "keywords": [
     "capacitor",
@@ -30,11 +31,11 @@
   "author": "Saepul Alam <saepul.alam@example.com>",
   "license": "MIT",
   "peerDependencies": {
-    "@capacitor/core": ">=2.0.0 <5.0.0"
+    "@capacitor/core": ">=2.0.0 <3.0.0"
   },
   "devDependencies": {
     "typescript": "^4.5.0",
-    "@capacitor/core": "^3.9.0",
+    "@capacitor/core": "^2.5.0",
     "@types/node": "^16.0.0"
   },
   "capacitor": {

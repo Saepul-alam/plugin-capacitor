@@ -1,0 +1,8 @@
+/Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/plugin_custom/pluginsecure/src/android/src/main/java/com/al/pluginsecure/PluginSecureFileProvider.kt
+/Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/plugin_custom/pluginsecure/src/android/src/main/java/com/al/pluginsecure/PluginSecurePlugin.kt
+/Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/plugin_custom/pluginsecure/src/android/src/main/java/com/al/pluginsecure/VerifiedPhotoOptions.kt
+/Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/plugin_custom/pluginsecure/src/android/src/main/java/com/al/pluginsecure/EXIFHelper.kt
+/Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/plugin_custom/pluginsecure/src/android/src/main/java/com/al/pluginsecure/BiometricHelper.kt
+/Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/plugin_custom/pluginsecure/src/android/src/main/java/com/al/pluginsecure/CameraVerifiedActivity.kt
+/Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/plugin_custom/pluginsecure/src/android/src/main/java/com/al/pluginsecure/GPSVerificationHelper.kt
+/Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/plugin_custom/pluginsecure/src/android/src/main/java/com/al/pluginsecure/BarcodeScanActivity.kt

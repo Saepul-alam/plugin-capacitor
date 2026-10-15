@@ -26,12 +26,12 @@ class GPSVerificationHelper: NSObject, CLLocationManagerDelegate {
         let isJailbroken: Bool
         let details: [String: Any]
 
-        func toJSObject() -> JSObject {
-            let obj = JSObject()
-            obj["isMock"] = isMock
-            obj["isJailbroken"] = isJailbroken
-            obj["details"] = details
-            return obj
+        func toJSObject() -> [String: Any] {
+            return [
+                "isMock": isMock,
+                "isJailbroken": isJailbroken,
+                "details": details
+            ]
         }
     }
 
@@ -40,12 +40,12 @@ class GPSVerificationHelper: NSObject, CLLocationManagerDelegate {
         let isJailbroken: Bool
         let details: [String]
 
-        func toJSObject() -> JSObject {
-            let obj = JSObject()
-            obj["isRooted"] = isRooted
-            obj["isJailbroken"] = isJailbroken
-            obj["details"] = details
-            return obj
+        func toJSObject() -> [String: Any] {
+            return [
+                "isRooted": isRooted,
+                "isJailbroken": isJailbroken,
+                "details": details
+            ]
         }
     }
 

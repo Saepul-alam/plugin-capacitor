@@ -1,0 +1,225 @@
+-- Merging decision tree log ---
+manifest
+ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:2:1-69:12
+INJECTED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:2:1-69:12
+INJECTED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:2:1-69:12
+INJECTED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:2:1-69:12
+INJECTED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:2:1-69:12
+INJECTED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:2:1-69:12
+INJECTED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:2:1-69:12
+	package
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:3:5-34
+		INJECTED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml
+		INJECTED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml
+	android:versionName
+		INJECTED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:2:1-69:12
+		INJECTED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml
+	android:versionCode
+		INJECTED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:2:1-69:12
+		INJECTED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml
+	xmlns:android
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:2:11-69
+uses-permission#android.permission.CAMERA
+ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:5:5-65
+	android:name
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:5:22-62
+uses-permission#android.permission.ACCESS_FINE_LOCATION
+ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:6:5-79
+	android:name
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:6:22-76
+uses-permission#android.permission.ACCESS_COARSE_LOCATION
+ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:7:5-81
+	android:name
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:7:22-78
+uses-permission#android.permission.ACCESS_BACKGROUND_LOCATION
+ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:8:5-85
+	android:name
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:8:22-82
+uses-permission#android.permission.WRITE_EXTERNAL_STORAGE
+ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:9:5-108
+	android:maxSdkVersion
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:9:79-105
+	android:name
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:9:22-78
+uses-permission#android.permission.READ_EXTERNAL_STORAGE
+ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:10:5-107
+	android:maxSdkVersion
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:10:78-104
+	android:name
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:10:22-77
+uses-permission#android.permission.USE_BIOMETRIC
+ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:11:5-72
+	android:name
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:11:22-69
+uses-permission#android.permission.USE_FINGERPRINT
+ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:12:5-74
+	android:name
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:12:22-71
+uses-permission#android.permission.VIBRATE
+ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:13:5-66
+	android:name
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:13:22-63
+uses-feature#android.hardware.camera
+ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:15:5-84
+	android:required
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:15:58-81
+	android:name
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:15:19-57
+uses-feature#android.hardware.camera.autofocus
+ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:16:5-95
+	android:required
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:16:68-92
+	android:name
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:16:19-67
+uses-feature#android.hardware.location.gps
+ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:17:5-90
+	android:required
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:17:64-87
+	android:name
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:17:19-63
+queries
+ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:18:5-42:15
+package#com.lexa.fakegps
+ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:19:9-52
+	android:name
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:19:18-49
+package#com.incorporateapps.fakegps
+ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:20:9-63
+	android:name
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:20:18-60
+package#com.gsmartstudio.fakegps
+ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:21:9-60
+	android:name
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:21:18-57
+package#ru.gavrikov.fakegps
+ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:22:9-55
+	android:name
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:22:18-52
+package#com.androidoverload.fakegps
+ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:23:9-63
+	android:name
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:23:18-60
+package#com.fakegps.mocklocation
+ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:24:9-60
+	android:name
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:24:18-57
+package#com.techmini.fakegps
+ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:25:9-56
+	android:name
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:25:18-53
+package#org.abolfazl.fakegps
+ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:26:9-56
+	android:name
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:26:18-53
+package#com.fakegps.location
+ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:27:9-56
+	android:name
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:27:18-53
+package#fake.gps.location
+ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:28:9-53
+	android:name
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:28:18-50
+package#com.fakegps.free
+ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:29:9-52
+	android:name
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:29:18-49
+package#com.gps.fake
+ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:30:9-48
+	android:name
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:30:18-45
+package#org.abolfazl.fakegpsfree
+ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:31:9-60
+	android:name
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:31:18-57
+package#com.fakegps.mock
+ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:32:9-52
+	android:name
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:32:18-49
+package#com.fakegps.pro
+ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:33:9-51
+	android:name
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:33:18-48
+package#com.mock.gps
+ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:34:9-48
+	android:name
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:34:18-45
+package#com.theappninjas.fakegpsjoystick
+ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:35:9-68
+	android:name
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:35:18-65
+package#com.incorporateapps.fakegps_route
+ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:36:9-69
+	android:name
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:36:18-66
+package#com.marlove.mocklocation
+ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:37:9-60
+	android:name
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:37:18-57
+intent#action:name:android.intent.action.MAIN+category:name:android.intent.category.LAUNCHER
+ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:38:9-41:18
+action#android.intent.action.MAIN
+ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:39:13-65
+	android:name
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:39:21-62
+category#android.intent.category.LAUNCHER
+ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:40:13-73
+	android:name
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:40:23-70
+application
+ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:44:5-68:19
+activity#com.al.pluginsecure.CameraVerifiedActivity
+ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:45:9-50:62
+	android:screenOrientation
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:49:13-49
+	android:exported
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:47:13-37
+	android:configChanges
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:50:13-59
+	android:theme
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:48:13-63
+	android:name
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:46:13-51
+activity#com.al.pluginsecure.BarcodeScanActivity
+ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:52:9-57:62
+	android:screenOrientation
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:56:13-49
+	android:exported
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:54:13-37
+	android:configChanges
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:57:13-59
+	android:theme
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:55:13-63
+	android:name
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:53:13-48
+provider#com.al.pluginsecure.PluginSecureFileProvider
+ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:59:9-67:20
+	android:grantUriPermissions
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:63:13-47
+	android:authorities
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:61:13-77
+	android:exported
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:62:13-37
+	android:name
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:60:13-72
+meta-data#android.support.FILE_PROVIDER_PATHS
+ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:64:13-66:54
+	android:resource
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:66:17-51
+	android:name
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml:65:17-67
+uses-sdk
+INJECTED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml reason: use-sdk injection requested
+INJECTED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml
+INJECTED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml
+INJECTED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml
+INJECTED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml
+	android:targetSdkVersion
+		INJECTED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml
+		INJECTED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml
+	android:minSdkVersion
+		INJECTED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml
+		ADDED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml
+		INJECTED from /Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/src/main/AndroidManifest.xml
