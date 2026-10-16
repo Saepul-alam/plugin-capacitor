@@ -82,6 +82,26 @@ export interface BarcodeScanResult {
   format: string;
 }
 
+export interface NativeErrorOptions {
+  title?: string;
+  message?: string;
+  code?: string | number;
+  canRetry?: boolean;
+}
+
+export interface AppStateData {
+  lastUrl?: string | null;
+  lastRoute?: string | null;
+  timestamp?: number;
+  extraData?: string | null;
+  isExpired?: boolean;
+}
+
+export interface StatePreservationOptions {
+  enabled?: boolean;
+  maxAgeMinutes?: number;
+}
+
 export interface PluginSecurePlugin {
   verifyGPS(): Promise<GPSVerificationResult>;
   startGPSMonitoring(options?: { intervalMs?: number }): Promise<void>;
@@ -91,10 +111,18 @@ export interface PluginSecurePlugin {
   checkBiometricAvailability(): Promise<BiometricAvailabilityResult>;
   authenticateBiometric(options?: BiometricAuthOptions): Promise<BiometricAuthResult>;
   scanBarcode(options?: BarcodeScanOptions): Promise<BarcodeScanResult>;
+  showNativeError(options?: NativeErrorOptions): Promise<void>;
+  hideNativeError(): Promise<void>;
+  saveAppState(options: { url?: string; route?: string; data?: any }): Promise<void>;
+  getLastAppState(): Promise<AppStateData>;
+  enableStatePreservation(options?: { enabled: boolean }): Promise<void>;
+  restoreLastAppState(): Promise<{ restored: boolean }>;
+  enableNativeFeel(): Promise<void>;
   // Capacitor 2's WebPlugin returns the handle synchronously and removeAllListeners()
   // returns void (dist/esm/web/index.d.ts:47,49). The Promise<> forms are Capacitor 3.
   addListener(event: 'gpsMockDetected', callback: (data: GPSVerificationResult) => void): PluginListenerHandle;
   addListener(event: 'deviceIntegrityChanged', callback: (data: DeviceIntegrityResult) => void): PluginListenerHandle;
+  addListener(event: 'nativeErrorRetry', callback: () => void): PluginListenerHandle;
   removeAllListeners(): void;
 }
 

@@ -2,8 +2,14 @@ package com.al.pluginsecure
 
 import android.app.Activity
 import android.content.Intent
+import android.os.Build
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.view.View
+import android.webkit.WebSettings
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.fragment.app.FragmentActivity
 import com.getcapacitor.JSObject
 import com.getcapacitor.NativePlugin
@@ -31,14 +37,66 @@ class PluginSecurePlugin : Plugin() {
 
     private val gpsHelper by lazy { GPSVerificationHelper(context) }
     private val biometricHelper by lazy { BiometricHelper(context) }
+    private val stateHelper by lazy { SecureStateHelper(context) }
+    private var errorOverlay: NativeErrorOverlay? = null
     private var monitoringJob: Job? = null
 
-    /** Helper to create a standardized native error object */
-    private fun nativeError(message: String): JSObject {
+    override fun load() {
+        super.load()
+        val act = activity ?: return
+        val wv = bridge?.webView ?: return
+
+        act.runOnUiThread {
+            // Tune WebView for native feel
+            tuneNativeFeel(wv)
+
+            // Attach native error overlay
+            val overlay = NativeErrorOverlay(act, wv)
+            errorOverlay = overlay
+
+            // Wrap WebViewClient to intercept 404, connection & SSL errors
+            val existingClient = getExistingWebViewClient(wv)
+            wv.webViewClient = SecureWebViewClient(existingClient, overlay, stateHelper)
+
+            // Auto-restore previous state if available
+            stateHelper.restoreToWebView(wv)
+        }
+    }
+
+    private fun tuneNativeFeel(wv: WebView) {
+        wv.overScrollMode = View.OVER_SCROLL_NEVER
+        wv.settings.apply {
+            domStorageEnabled = true
+            databaseEnabled = true
+            setAppCacheEnabled(true)
+            cacheMode = WebSettings.LOAD_DEFAULT
+            setRenderPriority(WebSettings.RenderPriority.HIGH)
+        }
+    }
+
+    private fun getExistingWebViewClient(webView: WebView): WebViewClient? {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            webView.webViewClient
+        } else {
+            try {
+                val providerField = WebView::class.java.getDeclaredField("mProvider")
+                providerField.isAccessible = true
+                val provider = providerField.get(webView)
+                val clientField = provider?.javaClass?.getDeclaredField("mWebViewClient")
+                clientField?.isAccessible = true
+                clientField?.get(provider) as? WebViewClient
+            } catch (_: Exception) {
+                null
+            }
+        }
+    }
+
+    /** Helper to create a standardized native error JSON string */
+    private fun nativeError(message: String): String {
         return JSObject().apply {
             put("nativeError", true)
             put("nativeMessage", "NativeError: $message")
-        }
+        }.toString()
     }
 
     /** Launch an activity via SkeletonActivity to show placeholder UI */
@@ -206,10 +264,105 @@ class PluginSecurePlugin : Plugin() {
         call.resolve()
     }
 
+    override fun handleOnPause() {
+        bridge?.webView?.url?.let { stateHelper.saveState(it) }
+        super.handleOnPause()
+    }
+
+    override fun handleOnStop() {
+        bridge?.webView?.url?.let { stateHelper.saveState(it) }
+        super.handleOnStop()
+    }
+
+    override fun handleOnSaveInstanceState(outState: Bundle) {
+        bridge?.webView?.saveState(outState)
+        bridge?.webView?.url?.let { stateHelper.saveState(it) }
+        super.handleOnSaveInstanceState(outState)
+    }
+
+    override fun handleOnRestoreInstanceState(inState: Bundle) {
+        super.handleOnRestoreInstanceState(inState)
+        bridge?.webView?.restoreState(inState)
+    }
+
     override fun handleOnDestroy() {
         monitoringJob?.cancel()
         monitoringJob = null
         gpsHelper.unregisterGnssListener()
         super.handleOnDestroy()
+    }
+
+    @PluginMethod
+    fun showNativeError(call: PluginCall) {
+        val title = call.getString("title") ?: "Halaman Tidak Ditemukan"
+        val message = call.getString("message") ?: "Halaman yang Anda tuju tidak dapat dimuat."
+        val code = call.getString("code")
+        val canRetry = call.getBoolean("canRetry", true) ?: true
+
+        activity?.runOnUiThread {
+            errorOverlay?.show(
+                title = title,
+                message = message,
+                code = code,
+                canRetry = canRetry,
+                onRetry = {
+                    notifyListeners("nativeErrorRetry", JSObject())
+                    bridge?.webView?.reload()
+                }
+            )
+            call.resolve()
+        }
+    }
+
+    @PluginMethod
+    fun hideNativeError(call: PluginCall) {
+        activity?.runOnUiThread {
+            errorOverlay?.hide()
+            call.resolve()
+        }
+    }
+
+    @PluginMethod
+    fun saveAppState(call: PluginCall) {
+        val url = call.getString("url") ?: bridge?.webView?.url
+        val route = call.getString("route")
+        val extraData = call.getObject("data")?.toString()
+        stateHelper.saveState(url, route, extraData)
+        call.resolve()
+    }
+
+    @PluginMethod
+    fun getLastAppState(call: PluginCall) {
+        val ret = JSObject().apply {
+            put("lastUrl", stateHelper.getLastUrl())
+            put("lastRoute", stateHelper.getLastRoute())
+            put("timestamp", stateHelper.getLastTimestamp())
+            put("extraData", stateHelper.getExtraData())
+            put("isExpired", stateHelper.isExpired())
+        }
+        call.resolve(ret)
+    }
+
+    @PluginMethod
+    fun enableStatePreservation(call: PluginCall) {
+        val enabled = call.getBoolean("enabled", true) ?: true
+        stateHelper.setEnabled(enabled)
+        call.resolve()
+    }
+
+    @PluginMethod
+    fun restoreLastAppState(call: PluginCall) {
+        activity?.runOnUiThread {
+            val restored = bridge?.webView?.let { stateHelper.restoreToWebView(it) } ?: false
+            call.resolve(JSObject().apply { put("restored", restored) })
+        }
+    }
+
+    @PluginMethod
+    fun enableNativeFeel(call: PluginCall) {
+        activity?.runOnUiThread {
+            bridge?.webView?.let { tuneNativeFeel(it) }
+            call.resolve()
+        }
     }
 }

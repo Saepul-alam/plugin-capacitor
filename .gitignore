@@ -7,3 +7,6 @@ dist/
 .vscode/
 *.swp
 *.swo
+.gradle/
+build/
+src/android/build/

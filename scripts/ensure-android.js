@@ -78,7 +78,40 @@ if (!activityPath) {
   fail(`could not find MainActivity.java under ${path.join(platformDir, 'app', 'src', 'main', 'java')}`)
 }
 
-let source = fs.readFileSync(activityPath, 'utf-8')
+function ensureManifestSettings(manifestPath) {
+  if (!fs.existsSync(manifestPath)) {
+    return
+  }
+  let manifest = fs.readFileSync(manifestPath, 'utf-8')
+  let changed = false
+
+  // Ensure android:alwaysRetainTaskState="true" to preserve state on launcher icon click
+  if (!manifest.includes('android:alwaysRetainTaskState="true"')) {
+    manifest = manifest.replace(
+      /(<activity\b[^>]*android:name="[^"]*MainActivity"[^>]*)/,
+      '$1\n            android:alwaysRetainTaskState="true"'
+    )
+    changed = true
+    log('added android:alwaysRetainTaskState="true" to MainActivity in AndroidManifest.xml')
+  }
+
+  // Ensure android:launchMode="singleTask"
+  if (!manifest.includes('android:launchMode=')) {
+    manifest = manifest.replace(
+      /(<activity\b[^>]*android:name="[^"]*MainActivity"[^>]*)/,
+      '$1\n            android:launchMode="singleTask"'
+    )
+    changed = true
+    log('added android:launchMode="singleTask" to MainActivity in AndroidManifest.xml')
+  }
+
+  if (changed) {
+    fs.writeFileSync(manifestPath, manifest, 'utf-8')
+  }
+}
+
+const manifestPath = path.join(platformDir, 'app', 'src', 'main', 'AndroidManifest.xml')
+ensureManifestSettings(manifestPath)
 
 if (source.includes(`add(${PLUGIN_CLASS}.class)`)) {
   log(`already registered in ${activityPath}`)

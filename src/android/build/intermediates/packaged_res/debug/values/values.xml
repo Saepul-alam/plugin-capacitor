@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="app_name">PluginSecure</string>
-    <string name="camera_permission_rationale">Camera permission is required to capture verified photos</string>
-    <string name="location_permission_rationale">Location permission is required to verify GPS coordinates</string>
-</resources>

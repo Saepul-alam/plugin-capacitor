@@ -1,4 +1,5 @@
-import { WebPlugin, registerWebPlugin } from '@capacitor/core';
+import * as core from '@capacitor/core';
+const { WebPlugin } = core;
 import {
   PluginSecurePlugin,
   GPSVerificationResult,
@@ -9,7 +10,9 @@ import {
   BiometricAuthOptions,
   BiometricAuthResult,
   BarcodeScanOptions,
-  BarcodeScanResult
+  BarcodeScanResult,
+  NativeErrorOptions,
+  AppStateData
 } from './definitions';
 
 export class PluginSecureWeb extends WebPlugin implements PluginSecurePlugin {
@@ -77,18 +80,104 @@ export class PluginSecureWeb extends WebPlugin implements PluginSecurePlugin {
     };
   }
 
+  async showNativeError(options?: NativeErrorOptions): Promise<void> {
+    console.warn('[PluginSecure] showNativeError called on web:', options);
+    if (typeof window !== 'undefined' && options) {
+      alert(`${options.title || 'Error'}\n\n${options.message || 'Halaman tidak dapat dimuat'}\n(Code: ${options.code || 'UNKNOWN'})`);
+    }
+  }
+
+  async hideNativeError(): Promise<void> {
+    console.log('[PluginSecure] hideNativeError called on web');
+  }
+
+  async saveAppState(options: { url?: string; route?: string; data?: any }): Promise<void> {
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      sessionStorage.setItem('al_last_route', options.route || window.location.pathname);
+      sessionStorage.setItem('al_last_url', options.url || window.location.href);
+      sessionStorage.setItem('al_last_timestamp', String(Date.now()));
+    }
+  }
+
+  async getLastAppState(): Promise<AppStateData> {
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      return {
+        lastRoute: sessionStorage.getItem('al_last_route'),
+        lastUrl: sessionStorage.getItem('al_last_url'),
+        timestamp: Number(sessionStorage.getItem('al_last_timestamp')) || Date.now(),
+        isExpired: false
+      };
+    }
+    return { isExpired: true };
+  }
+
+  async enableStatePreservation(options?: { enabled: boolean }): Promise<void> {}
+
+  async restoreLastAppState(): Promise<{ restored: boolean }> {
+    return { restored: false };
+  }
+
+  async enableNativeFeel(): Promise<void> {}
+
   // Inherit addListener and removeAllListeners from WebPlugin
 }
 
-const PluginSecure = new PluginSecureWeb();
+const coreAny = core as any;
+let PluginSecureInstance: PluginSecurePlugin;
 
-// Capacitor 2 has no registerPlugin(); registerWebPlugin() is the equivalent.
-// It only fills in Plugins['PluginSecure'] when the platform entry is missing or
-// when config.platforms lists the current platform, so the native implementation
-// registered by MainActivity is never overwritten on Android/iOS. This exists so
-// `Plugins.PluginSecure` resolves on the web/browser build instead of falling back
-// to the "does not have web implementation" proxy.
-registerWebPlugin(PluginSecure);
+if (typeof coreAny.registerPlugin === 'function') {
+  // Capacitor 3+
+  PluginSecureInstance = coreAny.registerPlugin('PluginSecure', {
+    web: () => new PluginSecureWeb()
+  });
+} else {
+  // Capacitor 2 fallback
+  PluginSecureInstance = new PluginSecureWeb();
+  if (typeof coreAny.registerWebPlugin === 'function') {
+    coreAny.registerWebPlugin(PluginSecureInstance);
+  }
+}
+
+const PluginSecure = PluginSecureInstance;
+
+/**
+ * Helper to automatically sync routing & state on app switch / visibilitychange.
+ * Can be hooked with Vue Router (Quasar) or standard navigation.
+ */
+export function setupAutoStatePreservation(options?: {
+  router?: { currentRoute?: any; push?: (r: any) => void; replace?: (r: any) => void };
+  onRestore?: (savedState: AppStateData) => void;
+}) {
+  if (typeof window === 'undefined') return;
+
+  const saveCurrent = () => {
+    const route = options?.router?.currentRoute?.fullPath || window.location.hash || window.location.pathname;
+    PluginSecure.saveAppState({
+      url: window.location.href,
+      route: route
+    }).catch(() => {});
+  };
+
+  // Sync on tab switch, minimize, or backgrounding
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      saveCurrent();
+    }
+  });
+
+  window.addEventListener('beforeunload', saveCurrent);
+  window.addEventListener('pagehide', saveCurrent);
+
+  // Attempt auto-restore on initial setup if custom callback provided
+  if (options?.onRestore) {
+    PluginSecure.getLastAppState().then(saved => {
+      if (saved && !saved.isExpired && (saved.lastRoute || saved.lastUrl)) {
+        options.onRestore!(saved);
+      }
+    }).catch(() => {});
+  }
+}
 
 export { PluginSecure };
 export * from './definitions';
+

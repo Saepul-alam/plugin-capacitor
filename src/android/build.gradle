@@ -8,12 +8,16 @@ apply plugin: 'kotlin-android'
 // Capacitor-mode host uses):
 //   * no `namespace` block, AGP 4.x takes the package from AndroidManifest.xml
 //   * compileSdkVersion/targetSdkVersion 29, matching the host's variables.gradle
+def DEFAULT_COMPILE_SDK_VERSION = 30
+def DEFAULT_TARGET_SDK_VERSION = 30
+def DEFAULT_MIN_SDK_VERSION = 21
+
 android {
-    compileSdkVersion 29
+    compileSdkVersion rootProject.hasProperty('compileSdkVersion') ? rootProject.ext.compileSdkVersion : DEFAULT_COMPILE_SDK_VERSION
 
     defaultConfig {
-        minSdkVersion 21
-        targetSdkVersion 29
+        minSdkVersion rootProject.hasProperty('minSdkVersion') ? rootProject.ext.minSdkVersion : DEFAULT_MIN_SDK_VERSION
+        targetSdkVersion rootProject.hasProperty('targetSdkVersion') ? rootProject.ext.targetSdkVersion : DEFAULT_TARGET_SDK_VERSION
         versionCode 1
         versionName "1.0.0"
     }
