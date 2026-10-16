@@ -7,7 +7,7 @@ Plugin Capacitor 3 yang menyediakan fitur keamanan native untuk aplikasi hybrid 
 - **Scan Barcode / QR** — ML Kit (Android) / AVFoundation (iOS).
 - **Autentikasi biometrik** — sidik jari / wajah.
 - **Gate izin lokasi** — opsional mewajibkan akses lokasi dan memblokir app dengan pintasan ke pengaturan saat izin ditolak.
-- **Native error UI & state preservation** — overlay native dan pemulihan rute terakhir yang *close-aware*.
+- **Native error UI & state safety** — overlay error native; cold start selalu fresh (state preservation bersifat opt-in).
 
 > Menargetkan **Capacitor 3** (`@capacitor/core >=3.0.0 <4.0.0`). Terverifikasi pada Quasar v1 (`@quasar/app` v2) mode Capacitor.
 
@@ -78,7 +78,7 @@ Semua opsi berada di bawah `plugins.PluginSecure` pada `src-capacitor/capacitor.
   "plugins": {
     "PluginSecure": {
       "requireLocation": true,
-      "statePreservation": true
+      "statePreservation": false
     }
   }
 }
@@ -87,7 +87,7 @@ Semua opsi berada di bawah `plugins.PluginSecure` pada `src-capacitor/capacitor.
 | Key | Tipe | Default | Efek |
 | --- | --- | --- | --- |
 | `requireLocation` | boolean | `true` | Mewajibkan izin lokasi runtime. Bila ditolak, boot file yang di-generate menampilkan gate layar penuh dengan pintasan ke pengaturan app/lokasi. |
-| `statePreservation` | boolean | `true` | Memulihkan rute terakhir saat cold start. **Close-aware**: rute terakhir hanya dipulihkan bila app dibunuh OS di background; bila user sendiri menutup app, app mulai dari awal. Set `false` untuk selalu mulai dari awal pada setiap cold start. |
+| `statePreservation` | boolean | `false` | Opt-in (default nonaktif). Bila diaktifkan, memulihkan rute terakhir saat cold start (best-effort, close-aware). Bila nonaktif, setiap cold start fresh — multitasking tetap di halaman yang sama karena WebView dibiarkan hidup di background. |
 
 Keduanya bisa ditimpa saat runtime (tersimpan di perangkat):
 
@@ -104,8 +104,8 @@ await this.$pluginsecure.enableStatePreservation({ enabled: false })
 | --- | --- |
 | Pindah ke app lain / multitasking (app tidak ditutup) | **Tetap di halaman yang sama** (WebView dibiarkan hidup). |
 | User menutup app (swipe dari Recents, atau back-exit) | **Fresh** — mulai dari halaman awal saat dibuka lagi. |
-| OS membunuh app di background (memori rendah) | **Resume** halaman terakhir. |
-| `statePreservation: false` | **Fresh** di setiap cold start. |
+| Cold start dengan alasan apa pun (default `statePreservation: false`) | **Fresh** di setiap cold start. |
+| `statePreservation: true` (opt-in) | Resume halaman terakhir secara best-effort saat cold start (close-aware). |
 
 ## Penggunaan
 
@@ -204,7 +204,7 @@ Podspec `AlPluginsecure.podspec` dikonsumsi CocoaPods setelah `cap sync`. Butuh 
 - **Gradle/AGP gagal di JDK 17** — build pakai JDK 11: `export JAVA_HOME=$(/usr/libexec/java_home -v 11)`.
 - **`Could not find org.apache.cordova:framework:7.0.0`** — jalankan ulang `npx pluginsecure-setup` agar template Android ditambal.
 - **Boot file hilang setelah `npm i --ignore-scripts`** — jalankan `node node_modules/@al/pluginsecure/scripts/setup.js`.
-- **App masih menampilkan halaman terakhir saat dibuka** — cek `statePreservation` di `capacitor.config.json`; set `false` untuk selalu mulai dari awal.
+- **App masih menampilkan halaman terakhir saat dibuka** — state preservation bersifat opt-in; biarkan `statePreservation: false` (default) di `capacitor.config.json` agar setiap cold start fresh.
 
 ## Pengembangan
 

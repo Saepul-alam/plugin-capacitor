@@ -7,7 +7,7 @@ Capacitor 3 plugin providing native security features for hybrid (Quasar v1) app
 - **Barcode / QR scanning** — ML Kit (Android) / AVFoundation (iOS).
 - **Biometric authentication** — fingerprint / face.
 - **Location permission gating** — optionally requires location access and blocks the app with a settings shortcut when denied.
-- **Native error UI & state preservation** — native overlay and close-aware restore of the last route.
+- **Native error UI & state safety** — native overlay; cold starts are always fresh (state preservation is opt-in).
 
 > Targets **Capacitor 3** (`@capacitor/core >=3.0.0 <4.0.0`). Verified against Quasar v1 (`@quasar/app` v2) Capacitor mode.
 
@@ -78,7 +78,7 @@ All options live under `plugins.PluginSecure` in `src-capacitor/capacitor.config
   "plugins": {
     "PluginSecure": {
       "requireLocation": true,
-      "statePreservation": true
+      "statePreservation": false
     }
   }
 }
@@ -87,7 +87,7 @@ All options live under `plugins.PluginSecure` in `src-capacitor/capacitor.config
 | Key | Type | Default | Effect |
 | --- | --- | --- | --- |
 | `requireLocation` | boolean | `true` | Make the app require runtime location permission. When denied, the generated boot file shows a full-screen gate with shortcuts to the app/location settings. |
-| `statePreservation` | boolean | `true` | Restore the last route on cold start. **Close-aware**: the last route is restored only when the app was killed by the OS in the background; if the user explicitly closed the app, it starts fresh. Set `false` to always start fresh on any cold start. |
+| `statePreservation` | boolean | `false` | Opt-in (default off). When enabled, restores the last route on cold start (best-effort, close-aware). When disabled, every cold start is fresh — multitasking still keeps the current page because the WebView stays alive in the background. |
 
 Both can be overridden at runtime (persisted on the device):
 
@@ -104,8 +104,8 @@ await this.$pluginsecure.enableStatePreservation({ enabled: false })
 | --- | --- |
 | Switch to another app / multitasking (app not closed) | **Stays on the same page** (the WebView is kept alive). |
 | User closes the app (swipe from Recents, or back-exit) | **Fresh** — starts from the initial page on next open. |
-| OS kills the app in the background (low memory) | **Resumes** the last page. |
-| `statePreservation: false` | **Fresh** on every cold start. |
+| Cold start for any reason (default `statePreservation: false`) | **Fresh** on every cold start. |
+| `statePreservation: true` (opt-in) | Best-effort resume of the last page on cold start (close-aware). |
 
 ## Usage
 
@@ -204,7 +204,7 @@ The podspec `AlPluginsecure.podspec` is consumed by CocoaPods after `cap sync`. 
 - **Gradle/AGP fails on JDK 17** — build with JDK 11: `export JAVA_HOME=$(/usr/libexec/java_home -v 11)`.
 - **`Could not find org.apache.cordova:framework:7.0.0`** — re-run `npx pluginsecure-setup` so the Android template is patched.
 - **Boot file missing after `npm i --ignore-scripts`** — run `node node_modules/@al/pluginsecure/scripts/setup.js`.
-- **App still shows the last page on launch** — check `statePreservation` in `capacitor.config.json`; set `false` to always start fresh.
+- **App still shows the last page on launch** — state preservation is opt-in; keep `statePreservation: false` (default) in `capacitor.config.json` so every cold start is fresh.
 
 ## Development
 

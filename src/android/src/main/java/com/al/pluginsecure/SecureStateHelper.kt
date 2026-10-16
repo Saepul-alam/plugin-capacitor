@@ -87,7 +87,7 @@ class SecureStateHelper(context: Context) {
     }
 
     fun clearState() {
-        prefs.edit().clear().apply()
+        prefs.edit().clear().commit()
     }
 }
 

@@ -78,12 +78,14 @@ class PluginSecurePlugin : Plugin() {
         }
         requireLocation = locationPrefs.getBoolean(KEY_REQUIRE_LOCATION, configDefault)
 
-        // State preservation (default true): restore the last route on cold start,
-        // except when the user explicitly closed the app (then start fresh).
+        // State preservation (opt-in, default false): when enabled, the last route is
+        // restored on cold start (best-effort, close-aware). When disabled every cold
+        // start is fresh; multitasking still keeps the page because the WebView stays
+        // alive in the background.
         val statePreservation = try {
-            getConfig().getBoolean("statePreservation", true)
+            getConfig().getBoolean("statePreservation", false)
         } catch (_: Exception) {
-            true
+            false
         }
         stateHelper.setDefaultEnabled(statePreservation)
 

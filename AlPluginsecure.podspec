@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name         = 'AlPluginsecure'
-  s.version      = '1.0.1'
+  s.version      = '1.0.2'
   s.summary      = 'Security plugin for Capacitor - Fake GPS detection, verified camera, native error UI & state preservation'
   s.license      = 'MIT'
   s.homepage     = 'https://github.com/Saepul-alam/plugin-capacitor'

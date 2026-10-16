@@ -1,6 +1,6 @@
 {
   "name": "@al/pluginsecure",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Security anti-spoofing, verified camera, native error UI, and state preservation for Capacitor apps",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
