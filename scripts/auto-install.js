@@ -372,11 +372,10 @@ export const PluginSecureService = {
   openLocationSettings: passThrough('openLocationSettings')
 }
 
-// Set to false to disable the location requirement gate for this build.
-// The native plugin default can also be overridden via capacitor.config.json
-// (plugins.PluginSecure.requireLocation) or at runtime via setLocationRequired().
-export const REQUIRE_LOCATION = true
-
+// Location gate. Controlled entirely from capacitor.config.json:
+//   plugins.PluginSecure.requireLocation  (default true)
+// read through the native isLocationRequired(). Runtime override:
+// setLocationRequired({ enabled }).
 const LOCATION_GATE_ID = '__pluginsecure_location_gate__'
 
 const BUTTON_STYLE = [
@@ -391,7 +390,7 @@ const LocationGate = {
   busy: false,
 
   async init () {
-    if (!isNative() || !REQUIRE_LOCATION || typeof document === 'undefined') return
+    if (!isNative() || typeof document === 'undefined') return
 
     window.addEventListener('focus', () => { this.refresh() })
     document.addEventListener('visibilitychange', () => {
@@ -409,9 +408,8 @@ const LocationGate = {
     if (this.busy || typeof document === 'undefined') return
     this.busy = true
     try {
-      if (!REQUIRE_LOCATION) { this.hide(); return }
       const required = await PluginSecureService.isLocationRequired()
-      if (required && required.enabled === false) { this.hide(); return }
+      if (!required || required.enabled === false) { this.hide(); return }
 
       let perm = await PluginSecureService.checkLocationPermission()
       if (perm && perm.state === 'prompt') {

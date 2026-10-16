@@ -1,6 +1,6 @@
 {
   "name": "@al/pluginsecure",
-  "version": "1.0.01",
+  "version": "1.0.1",
   "description": "Security anti-spoofing, verified camera, native error UI, and state preservation for Capacitor apps",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
@@ -10,7 +10,8 @@
     "src/",
     "scripts/",
     "capacitor-plugin.json",
-    "AlPluginsecure.podspec"
+    "AlPluginsecure.podspec",
+    "README.id.md"
   ],
   "scripts": {
     "build": "rm -rf dist && npm run build:esm && npm run build:cjs",

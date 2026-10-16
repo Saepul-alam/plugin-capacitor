@@ -21,7 +21,17 @@ class SecureStateHelper(context: Context) {
     private val prefs: SharedPreferences =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
-    fun isEnabled(): Boolean = prefs.getBoolean(KEY_ENABLED, true)
+    /**
+     * Value used when the runtime override (`enableStatePreservation`) has never
+     * been set. Comes from the plugin config (`plugins.PluginSecure.statePreservation`).
+     */
+    private var defaultEnabled: Boolean = true
+
+    fun setDefaultEnabled(enabled: Boolean) {
+        defaultEnabled = enabled
+    }
+
+    fun isEnabled(): Boolean = prefs.getBoolean(KEY_ENABLED, defaultEnabled)
 
     fun setEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_ENABLED, enabled).apply()

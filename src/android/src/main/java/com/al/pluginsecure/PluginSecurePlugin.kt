@@ -2,6 +2,7 @@ package com.al.pluginsecure
 
 import android.Manifest
 import android.app.Activity
+import android.app.Application
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
@@ -49,6 +50,11 @@ class PluginSecurePlugin : Plugin() {
         private const val LOCATION_ALIAS = "location"
         private const val LOCATION_PREFS = "plugin_secure_location_prefs"
         private const val KEY_REQUIRE_LOCATION = "require_location"
+
+        // Registered once per process; detects when the user explicitly closes the
+        // app so the preserved state is cleared and the next launch starts fresh.
+        @Volatile
+        private var closeObserver: Application.ActivityLifecycleCallbacks? = null
     }
 
     private val gpsHelper by lazy { GPSVerificationHelper(context) }
@@ -72,6 +78,17 @@ class PluginSecurePlugin : Plugin() {
         }
         requireLocation = locationPrefs.getBoolean(KEY_REQUIRE_LOCATION, configDefault)
 
+        // State preservation (default true): restore the last route on cold start,
+        // except when the user explicitly closed the app (then start fresh).
+        val statePreservation = try {
+            getConfig().getBoolean("statePreservation", true)
+        } catch (_: Exception) {
+            true
+        }
+        stateHelper.setDefaultEnabled(statePreservation)
+
+        registerCloseObserver()
+
         val act = activity ?: return
         val wv = bridge?.webView ?: return
 
@@ -90,6 +107,35 @@ class PluginSecurePlugin : Plugin() {
             // Auto-restore previous state if available
             stateHelper.restoreToWebView(wv)
         }
+    }
+
+    /**
+     * Registers an application-level lifecycle observer once per process.
+     *
+     * When the user explicitly closes the app (swipe from Recents, or back-exit
+     * which calls finish()), the host Activity is destroyed with
+     * `isFinishing == true`; we then clear the preserved state so the next launch
+     * starts fresh. When the OS kills the process in the background there is no
+     * destroy callback, so the state survives and the app resumes where it was.
+     */
+    private fun registerCloseObserver() {
+        if (closeObserver != null) return
+        val app = context.applicationContext as? Application ?: return
+        val observer = object : Application.ActivityLifecycleCallbacks {
+            override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
+            override fun onActivityStarted(activity: Activity) {}
+            override fun onActivityResumed(activity: Activity) {}
+            override fun onActivityPaused(activity: Activity) {}
+            override fun onActivityStopped(activity: Activity) {}
+            override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
+            override fun onActivityDestroyed(activity: Activity) {
+                if (activity.isFinishing && !activity.isChangingConfigurations) {
+                    SecureStateHelper(activity.applicationContext).clearState()
+                }
+            }
+        }
+        app.registerActivityLifecycleCallbacks(observer)
+        closeObserver = observer
     }
 
     private fun tuneNativeFeel(wv: WebView) {
