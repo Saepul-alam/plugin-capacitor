@@ -17,7 +17,8 @@
     "build:esm": "tsc -p tsconfig.json",
     "build:cjs": "tsc -p tsconfig.json --module commonjs --outDir dist/cjs --declaration false --declarationMap false",
     "watch": "tsc --watch",
-    "prepare": "npm run build"
+    "prepare": "npm run build",
+    "postinstall": "node scripts/auto-install.js"
   },
   "keywords": [
     "capacitor",
@@ -31,7 +32,7 @@
   "author": "Saepul Alam <saepul.alam@example.com>",
   "license": "MIT",
   "peerDependencies": {
-    "@capacitor/core": ">=2.0.0 || >=3.0.0"
+    "@capacitor/core": ">=2.5.0 <3.0.0"
   },
   "devDependencies": {
     "typescript": "^4.5.0",

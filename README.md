@@ -1,158 +1,118 @@
 # @al/pluginsecure
 
-Enterprise Capacitor plugin providing mobile security (anti-spoofing, fake GPS, verified camera, biometrics, barcode scanning) and a seamless **Native App Experience** (native error screen interception, app state preservation across app switching, and native-feel tuning).
+Capacitor 2 plugin providing native security features for hybrid apps:
 
-Supports **Capacitor 2** and **Capacitor 3** across Android and iOS.
+- **Fake GPS detection** — mock locations, spoofing apps, emulators (Android) and jailbreak hints (iOS).
+- **Device integrity** — root / jailbreak detection.
+- **Verified camera** — CameraX (Android) / AVFoundation (iOS) with GPS verification and EXIF embedding.
+- **Barcode / QR scanning** — ML Kit (Android) / AVFoundation (iOS).
+- **Biometric authentication** — fingerprint / face.
+- **Native error UI & state preservation** — optional native overlay and restore-last-route helpers.
 
----
+> This package targets **Capacitor 2** (`@capacitor/core >=2.5.0 <3.0.0`). It is verified against Quasar v1 (`@quasar/app` v2) Capacitor mode.
 
-## Features
+## Installation (Quasar v1 + Capacitor mode)
 
-### 🛡️ Native Error Interceptor (No Web/Chromium Error Pages)
-- Intercepts HTTP $\ge 400$ (**404 Not Found**, 500, 502) and network disconnections (`ERR_INTERNET_DISCONNECTED`, `ERR_CONNECTION_REFUSED`, `ERR_TIMEOUT`).
-- Replaces ugly Chromium/browser error pages (dinosaur, blank white screen) with a polished **Native Android Layout**.
-- Includes native **"Coba Lagi" (Retry)** and **"Kembali" (Back)** action buttons.
-- Supports programmatic invocation from Single Page Apps (Vue/Quasar): `PluginSecure.showNativeError(...)`.
+Capacitor plugins must be installed inside the Capacitor project, which Quasar creates at `src-capacitor`:
 
-### 🔄 App State Preservation & Anti-Reset
-- Automatically preserves the active page/route when switching to other apps (multitasking/backgrounding).
-- Prevents the app from resetting or reloading back to the initial splash/login screen when reopened from the launcher icon.
-- Restores state across Android OS memory reclaim (*process death*).
-
-### ⚡ Native Feel Tuning
-- Disables web rubber-band overscroll glow (`OVER_SCROLL_NEVER`).
-- Enables hardware acceleration and DOM storage caching to eliminate white flashes during page transitions.
-
-### 🔒 Enterprise Mobile Security
-- **Fake GPS & Mock Location Detection**: Detects mock providers, spoofing apps, and emulators.
-- **Root & Jailbreak Detection**: Identifies Cydia, Magisk, Substrate, and tampering tools.
-- **Verified Camera**: CameraX capture with tamper-proof GPS coordinates embedded into EXIF metadata.
-- **Biometric Authentication**: Fingerprint and Face Unlock authentication.
-- **Barcode & QR Scanner**: High performance barcode scanning powered by ML Kit.
-
----
-
-## Installation
-
-### From GitHub Repository
 ```bash
-npm install @al/pluginsecure@github:Saepul-alam/plugin-capacitor#v1.0.0
-# Or latest main branch:
-npm install @al/pluginsecure@github:Saepul-alam/plugin-capacitor
+cd src-capacitor
+npm i @al/pluginsecure
 ```
 
-### Sync with Capacitor
-```bash
-npx cap sync
-```
+The `postinstall` hook then performs the whole native integration automatically:
 
-### Android Task State Configuration
-Run the idempotent helper script to ensure `alwaysRetainTaskState="true"` and `launchMode="singleTask"` in `AndroidManifest.xml`:
+1. `cap sync` — wires the plugin into `capacitor.settings.gradle` / Xcode pods.
+2. `ensure-android.js` — registers `PluginSecurePlugin` in `MainActivity.java` (required by Capacitor 2).
+3. `pod install` on macOS (skip with `PLUGINSECURE_SKIP_POD_INSTALL=1`).
+4. Generates `src/boot/pluginsecure.js` in the Quasar app root and adds `'pluginsecure'` to the `boot` array in `quasar.conf.js`.
+
+Disable the whole hook with `PLUGINSECURE_SKIP_POSTINSTALL=1`.
+
+### Manual fallback
+
+If scripts were disabled (`npm i --ignore-scripts`) or the project layout is non-standard, run the steps yourself from `src-capacitor`:
+
 ```bash
+npx cap sync android
 node node_modules/@al/pluginsecure/scripts/ensure-android.js android
+node node_modules/@al/pluginsecure/scripts/auto-install.js   # re-runs cap sync + ensure-android + boot file
 ```
 
----
+Then build the native app:
 
-## Usage in Quasar v1 / Vue 2 (or Quasar v2 / Vue 3)
+```bash
+quasar build -m capacitor -T android
+# or open the platform
+npx cap open android
+npx cap open ios
+```
 
-### 1. Boot File Setup (`src/boot/pluginsecure.js`)
-```javascript
-import { setupAutoStatePreservation, PluginSecure } from '@al/pluginsecure';
+## Usage
 
-export default ({ router, Vue }) => {
-  // 1. Enable Native Feel (disable web overscroll, enable cache)
-  PluginSecure.enableNativeFeel().catch(() => {});
+A ready-to-use service is injected as `$pluginsecure` (Options API) after the auto-generated boot file is registered:
 
-  // 2. Setup state preservation across app switching (multitasking)
-  setupAutoStatePreservation({
-    router,
-    onRestore: (savedState) => {
-      if (savedState && savedState.lastRoute && savedState.lastRoute !== '/') {
-        console.log('[PluginSecure] Restoring last route:', savedState.lastRoute);
-        router.replace(savedState.lastRoute).catch(() => {});
-      }
-    }
-  });
-
-  // 3. Listen to retry events from native error screen
-  PluginSecure.addListener('nativeErrorRetry', () => {
-    if (router.currentRoute) {
-      router.replace(router.currentRoute.fullPath).catch(() => {});
-    }
-  });
-
-  if (Vue) {
-    Vue.prototype.$pluginSecure = PluginSecure;
+```js
+async function verifyLocation () {
+  const result = await this.$pluginsecure.verifyGPS()
+  if (result.isMock) {
+    // handle mock location
   }
-};
-```
-
-Register the boot file in `quasar.conf.js`:
-```javascript
-boot: ['pluginsecure']
-```
-
----
-
-## API Reference
-
-### Native Error Screen
-```javascript
-import { PluginSecure } from '@al/pluginsecure';
-
-// Show native error overlay
-await PluginSecure.showNativeError({
-  title: 'Halaman Tidak Ditemukan',
-  message: 'Rute yang Anda tuju tidak ditemukan pada sistem.',
-  code: '404',
-  canRetry: true
-});
-
-// Hide native error overlay
-await PluginSecure.hideNativeError();
-```
-
-### State Preservation
-```javascript
-// Manually save state
-await PluginSecure.saveAppState({
-  url: window.location.href,
-  route: '/orders/detail?id=123',
-  data: { step: 2 }
-});
-
-// Get last saved state
-const state = await PluginSecure.getLastAppState();
-console.log('Last route:', state.lastRoute);
-```
-
-### Security & Camera
-```javascript
-// Verify GPS (anti-spoofing)
-const gps = await PluginSecure.verifyGPS();
-if (gps.isMock) {
-  alert('Mock location detected!');
 }
-
-// Check Root / Jailbreak
-const integrity = await PluginSecure.checkDeviceIntegrity();
-if (integrity.isRooted) {
-  alert('Device is rooted!');
-}
-
-// Biometric Auth
-const bio = await PluginSecure.authenticateBiometric({
-  title: 'Autentikasi Diperlukan',
-  cancelButtonText: 'Batal'
-});
-
-// Barcode Scan
-const scan = await PluginSecure.scanBarcode({ prompt: 'Arahkan kamera ke barcode' });
-console.log('Barcode:', scan.content);
 ```
 
----
+You can also access the native plugin directly:
+
+```js
+import { Capacitor } from '@capacitor/core'
+
+const plugin = Capacitor.Plugins.PluginSecure
+const photo = await plugin.captureVerifiedPhoto({ requireGPSVerification: true })
+```
+
+### API
+
+| Method | Description |
+| --- | --- |
+| `verifyGPS()` | Returns `{ isMock, isJailbroken, details }`. |
+| `checkDeviceIntegrity()` | Returns `{ isRooted, isJailbroken, details }`. |
+| `captureVerifiedPhoto(options)` | Verified capture; returns `{ uri, base64, dataUrl, exif }`. |
+| `scanBarcode(options)` | Returns `{ hasContent, content, format }`. |
+| `checkBiometricAvailability()` | Returns `{ isAvailable, biometryType, reason }`. |
+| `authenticateBiometric(options)` | Returns `{ success, error? }`. |
+| `startGPSMonitoring(options)` / `stopGPSMonitoring()` | Periodic checks; emits `gpsMockDetected`. |
+| `showNativeError(options)` / `hideNativeError()` | Native error overlay. |
+| `saveAppState(options)` / `getLastAppState()` | Persist / read last route. |
+| `enableStatePreservation(options)` / `restoreLastAppState()` / `enableNativeFeel()` | State + UX helpers. |
+
+### Web / browser (`quasar dev`)
+
+The generated `src/boot/pluginsecure.js` provides browser fallbacks: `verifyGPS` uses the browser geolocation API, `captureVerifiedPhoto` opens a file input, `scanBarcode` prompts for manual input. This lets you develop the UI without a device.
+
+## Android permissions
+
+The plugin manifest contributes the following (merged automatically by `cap sync`):
+
+- `android.permission.ACCESS_FINE_LOCATION`
+- `android.permission.ACCESS_COARSE_LOCATION`
+- `android.permission.CAMERA`
+- `android.permission.USE_BIOMETRIC`
+- `android.permission.VIBRATE`
+
+## iOS
+
+The podspec `AlPluginsecure.podspec` is consumed by CocoaPods after `cap sync`. Requires Xcode 11+ and CocoaPods.
+
+## Development
+
+```bash
+npm install      # installs deps + runs build + postinstall
+npm run build    # dist/esm + dist/cjs
+npm run watch    # incremental build
+```
+
+Source layout: `src/index.ts` (web bridge), `src/definitions.ts` (types), `src/android`, `src/ios`.
 
 ## License
+
 MIT

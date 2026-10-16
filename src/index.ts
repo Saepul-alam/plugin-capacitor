@@ -1,5 +1,4 @@
-import * as core from '@capacitor/core';
-const { WebPlugin } = core;
+import { WebPlugin, registerWebPlugin } from '@capacitor/core';
 import {
   PluginSecurePlugin,
   GPSVerificationResult,
@@ -122,23 +121,15 @@ export class PluginSecureWeb extends WebPlugin implements PluginSecurePlugin {
   // Inherit addListener and removeAllListeners from WebPlugin
 }
 
-const coreAny = core as any;
-let PluginSecureInstance: PluginSecurePlugin;
+const PluginSecure = new PluginSecureWeb();
 
-if (typeof coreAny.registerPlugin === 'function') {
-  // Capacitor 3+
-  PluginSecureInstance = coreAny.registerPlugin('PluginSecure', {
-    web: () => new PluginSecureWeb()
-  });
-} else {
-  // Capacitor 2 fallback
-  PluginSecureInstance = new PluginSecureWeb();
-  if (typeof coreAny.registerWebPlugin === 'function') {
-    coreAny.registerWebPlugin(PluginSecureInstance);
-  }
-}
-
-const PluginSecure = PluginSecureInstance;
+// Capacitor 2 has no registerPlugin(); registerWebPlugin() is the equivalent.
+// It only fills in Plugins['PluginSecure'] when the native platform entry is
+// missing, so the native implementation registered by MainActivity is never
+// overwritten on Android/iOS. This exists so `Plugins.PluginSecure` resolves on
+// the web/browser build instead of falling back to the "does not have web
+// implementation" proxy.
+registerWebPlugin(PluginSecure);
 
 /**
  * Helper to automatically sync routing & state on app switch / visibilitychange.

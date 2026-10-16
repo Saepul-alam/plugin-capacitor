@@ -1,7 +1,7 @@
 Pod::Spec.new do |s|
   s.name         = 'AlPluginsecure'
-  s.version      = '1.0.1'
-  s.summary      = 'Security plugin for Capacitor - Fake GPS detection & verified camera'
+  s.version      = '1.0.0'
+  s.summary      = 'Security plugin for Capacitor - Fake GPS detection, verified camera, native error UI & state preservation'
   s.license      = 'MIT'
   s.homepage     = 'https://github.com/Saepul-alam/plugin-capacitor'
   s.author       = { 'Saepul Alam' => 'saepul-alam' }
@@ -10,7 +10,4 @@ Pod::Spec.new do |s|
   s.ios.deployment_target = '11.0'
   s.dependency 'Capacitor'
   s.swift_version = '5.1'
-  s.resource_bundles = {
-    'PluginSecureResources' => ['src/ios/Resources/**/*']
-  }
 end
