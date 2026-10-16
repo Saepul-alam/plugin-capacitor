@@ -1,0 +1,34 @@
+{
+    "logs": [
+        {
+            "outputFile": "/Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/build/intermediates/incremental/mergeReleaseResources/merged.dir/values-small-v4/values-small-v4.xml",
+            "map": [
+                {
+                    "source": "/Users/m/.gradle/caches/transforms-2/files-2.1/3411b6e453fa49100b8e17661de2eea3/material-1.2.1/res/values-small-v4/values-small-v4.xml",
+                    "from": {
+                        "startLines": "2,3,4,5",
+                        "startColumns": "4,4,4,4",
+                        "startOffsets": "55,128,198,270",
+                        "endColumns": "72,69,71,69",
+                        "endOffsets": "123,193,265,335"
+                    }
+                }
+            ]
+        },
+        {
+            "outputFile": "/Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/build/intermediates/res/merged/release/values-small-v4/values-small-v4.xml",
+            "map": [
+                {
+                    "source": "/Users/m/.gradle/caches/transforms-2/files-2.1/3411b6e453fa49100b8e17661de2eea3/material-1.2.1/res/values-small-v4/values-small-v4.xml",
+                    "from": {
+                        "startLines": "2,3,4,5",
+                        "startColumns": "4,4,4,4",
+                        "startOffsets": "55,128,198,270",
+                        "endColumns": "72,69,71,69",
+                        "endOffsets": "123,193,265,335"
+                    }
+                }
+            ]
+        }
+    ]
+}

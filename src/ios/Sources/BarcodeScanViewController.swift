@@ -1,5 +1,6 @@
 import UIKit
 import AVFoundation
+import AudioToolbox
 
 protocol BarcodeScanDelegate: AnyObject {
     func didScanBarcode(content: String, format: String)

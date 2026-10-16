@@ -2,6 +2,8 @@ package com.al.pluginsecure
 
 import android.app.Activity
 import android.content.Intent
+import android.os.Handler
+import android.os.Looper
 import androidx.fragment.app.FragmentActivity
 import com.getcapacitor.JSObject
 import com.getcapacitor.NativePlugin
@@ -31,6 +33,26 @@ class PluginSecurePlugin : Plugin() {
     private val biometricHelper by lazy { BiometricHelper(context) }
     private var monitoringJob: Job? = null
 
+    /** Helper to create a standardized native error object */
+    private fun nativeError(message: String): JSObject {
+        return JSObject().apply {
+            put("nativeError", true)
+            put("nativeMessage", "NativeError: $message")
+        }
+    }
+
+    /** Launch an activity via SkeletonActivity to show placeholder UI */
+    private fun launchWithSkeleton(intent: Intent, requestCode: Int, call: PluginCall) {
+        // Prepare intent for SkeletonActivity with the target intent as extra
+        val skeletonIntent = Intent(activity, SkeletonActivity::class.java).apply {
+            putExtra(SkeletonActivity.EXTRA_TARGET_INTENT, intent)
+        }
+        // Save the call so we can handle the result later
+        saveCall(call)
+        // Start SkeletonActivity; it will forward to the target after a short delay
+        startActivityForResult(call, skeletonIntent, requestCode)
+    }
+
     @PluginMethod
     fun verifyGPS(call: PluginCall) {
         CoroutineScope(Dispatchers.IO).launch {
@@ -43,7 +65,7 @@ class PluginSecurePlugin : Plugin() {
                 }
                 call.resolve(ret)
             } catch (e: Exception) {
-                call.reject("GPS verification failed: ${e.message}", e)
+                call.reject(nativeError("GPS verification failed: ${e.message}"))
             }
         }
     }
@@ -60,11 +82,11 @@ class PluginSecurePlugin : Plugin() {
 
     @PluginMethod
     fun captureVerifiedPhoto(call: PluginCall) {
-        saveCall(call)
         val intent = Intent(activity, CameraVerifiedActivity::class.java).apply {
             putExtra("options", call.data.toString())
         }
-        startActivityForResult(call, intent, REQUEST_CODE_CAMERA)
+        // Use skeleton wrapper
+        launchWithSkeleton(intent, REQUEST_CODE_CAMERA, call)
     }
 
     @PluginMethod
@@ -81,21 +103,21 @@ class PluginSecurePlugin : Plugin() {
     fun authenticateBiometric(call: PluginCall) {
         val act = activity as? FragmentActivity
         if (act == null) {
-            call.reject("Activity does not support FragmentActivity")
+            call.reject(nativeError("Activity does not support FragmentActivity"))
             return
         }
 
         act.runOnUiThread {
             biometricHelper.authenticate(act, call.data) { success, error ->
                 if (success) {
-                    call.resolve(JSObject().apply {
-                        put("success", true)
-                    })
+                    call.resolve(JSObject().apply { put("success", true) })
                 } else {
-                    call.resolve(JSObject().apply {
-                        put("success", false)
-                        put("error", error ?: "Authentication failed")
-                    })
+                    call.resolve(
+                        JSObject().apply {
+                            put("success", false)
+                            put("error", error ?: "Authentication failed")
+                        }
+                    )
                 }
             }
         }
@@ -103,11 +125,11 @@ class PluginSecurePlugin : Plugin() {
 
     @PluginMethod
     fun scanBarcode(call: PluginCall) {
-        saveCall(call)
         val intent = Intent(activity, BarcodeScanActivity::class.java).apply {
             putExtra("prompt", call.getString("prompt"))
         }
-        startActivityForResult(call, intent, REQUEST_CODE_BARCODE)
+        // Use skeleton wrapper
+        launchWithSkeleton(intent, REQUEST_CODE_BARCODE, call)
     }
 
     override fun handleOnActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -122,11 +144,11 @@ class PluginSecurePlugin : Plugin() {
                         val jsObj = JSObject(resultStr)
                         savedCall.resolve(jsObj)
                     } catch (e: Exception) {
-                        savedCall.reject("Failed to parse camera result: ${e.message}")
+                        savedCall.reject(nativeError("Failed to parse camera result: ${e.message}"))
                     }
                 } else {
                     val error = data?.getStringExtra("error") ?: "Photo capture cancelled"
-                    savedCall.reject(error)
+                    savedCall.reject(nativeError(error))
                 }
                 freeSavedCall()
             }
@@ -137,9 +159,10 @@ class PluginSecurePlugin : Plugin() {
                         val jsObj = JSObject(resultStr)
                         savedCall.resolve(jsObj)
                     } catch (e: Exception) {
-                        savedCall.reject("Failed to parse barcode result: ${e.message}")
+                        savedCall.reject(nativeError("Failed to parse barcode result: ${e.message}"))
                     }
                 } else {
+                    // No content case – resolve with empty structure (unchanged)
                     savedCall.resolve(JSObject().apply {
                         put("hasContent", false)
                         put("content", "")

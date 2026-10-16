@@ -1,0 +1,16 @@
+R_DEF: Internal format may change without notice
+local
+id btnCancel
+id btnCapture
+id btnSwitchCamera
+id btnTorch
+id previewView
+id tvGpsStatus
+id tvPrompt
+id viewFinder
+layout activity_barcode_scan
+layout activity_camera_verified
+string app_name
+string camera_permission_rationale
+string location_permission_rationale
+xml file_paths

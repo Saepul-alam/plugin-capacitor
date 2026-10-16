@@ -4,9 +4,7 @@ import CoreLocation
 
 @objc(PluginSecurePlugin)
 public class PluginSecurePlugin: CAPPlugin, CAPBridgedPlugin {
-    public let identifier = "PluginSecure"
-    public let jsName = "PluginSecure"
-    public let pluginMethods: [CAPPluginMethod] = [
+    private static let methods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "verifyGPS", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "checkDeviceIntegrity", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "captureVerifiedPhoto", returnType: CAPPluginReturnPromise),
@@ -16,6 +14,26 @@ public class PluginSecurePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "authenticateBiometric", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "scanBarcode", returnType: CAPPluginReturnPromise)
     ]
+
+    // Capacitor 2 discovers plugins by scanning the ObjC runtime for these
+    // CAPBridgedPlugin class methods (CAPBridge.swift) - the Capacitor 3-style
+    // instance properties (identifier/jsName/pluginMethods) do not exist here.
+    @objc public static func pluginId() -> String! {
+        return "PluginSecure"
+    }
+
+    @objc public static func jsName() -> String! {
+        return "PluginSecure"
+    }
+
+    @objc public static func pluginMethods() -> [Any]! {
+        return methods as [Any]
+    }
+
+    @objc public static func getMethod(_ methodName: String!) -> CAPPluginMethod! {
+        guard let name = methodName else { return nil }
+        return methods.first(where: { $0.name == name })
+    }
 
     private let gpsHelper = GPSVerificationHelper()
     private var monitoringTimer: Timer?
@@ -36,9 +54,9 @@ public class PluginSecurePlugin: CAPPlugin, CAPBridgedPlugin {
         self.cameraCall = call
         DispatchQueue.main.async {
             let vc = CameraVerifiedViewController()
-            vc.options = call.options
+            vc.options = VerifiedPhotoOptions(from: call.options as? [String: Any] ?? [:])
             vc.delegate = self
-            self.bridge?.viewController?.present(vc, animated: true)
+            self.bridge?.viewController.present(vc, animated: true)
         }
     }
 
@@ -71,12 +89,12 @@ public class PluginSecurePlugin: CAPPlugin, CAPBridgedPlugin {
             let vc = BarcodeScanViewController()
             vc.promptText = call.getString("prompt")
             vc.delegate = self
-            self.bridge?.viewController?.present(vc, animated: true)
+            self.bridge?.viewController.present(vc, animated: true)
         }
     }
 
     @objc func startGPSMonitoring(_ call: CAPPluginCall) {
-        let interval = call.getInt("intervalMs", 30000)
+        let interval = call.getInt("intervalMs", 30000) ?? 30000
         monitoringTimer?.invalidate()
         monitoringTimer = Timer.scheduledTimer(withTimeInterval: TimeInterval(interval)/1000, repeats: true) { _ in
             let result = self.gpsHelper.verifyGPS()

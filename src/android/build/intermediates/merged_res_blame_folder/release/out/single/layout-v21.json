@@ -1,0 +1,18 @@
+[
+    {
+        "merged": "/Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/build/intermediates/res/merged/release/layout-v21/notification_template_icon_group.xml",
+        "source": "/Users/m/.gradle/caches/transforms-2/files-2.1/2d5068787f8c9672d7dbea5bb656c2b1/core-1.5.0/res/layout-v21/notification_template_icon_group.xml"
+    },
+    {
+        "merged": "/Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/build/intermediates/res/merged/release/layout-v21/notification_action_tombstone.xml",
+        "source": "/Users/m/.gradle/caches/transforms-2/files-2.1/2d5068787f8c9672d7dbea5bb656c2b1/core-1.5.0/res/layout-v21/notification_action_tombstone.xml"
+    },
+    {
+        "merged": "/Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/build/intermediates/res/merged/release/layout-v21/notification_action.xml",
+        "source": "/Users/m/.gradle/caches/transforms-2/files-2.1/2d5068787f8c9672d7dbea5bb656c2b1/core-1.5.0/res/layout-v21/notification_action.xml"
+    },
+    {
+        "merged": "/Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/build/intermediates/res/merged/release/layout-v21/notification_template_custom_big.xml",
+        "source": "/Users/m/.gradle/caches/transforms-2/files-2.1/2d5068787f8c9672d7dbea5bb656c2b1/core-1.5.0/res/layout-v21/notification_template_custom_big.xml"
+    }
+]

@@ -60,16 +60,10 @@ class GPSVerificationHelper: NSObject, CLLocationManagerDelegate {
         isMock = true
         #endif
 
-        if let location = lastLocation {
-            #if DEBUG
-            if #available(iOS 14.0, *) {
-                if location.isSimulatedBySoftware {
-                    isMock = true
-                    details["simulatedBySoftware"] = true
-                }
-            }
-            #endif
-        }
+        // iOS has no public API equivalent to Android's Location.isFromMockProvider
+        // (CLLocation.isSimulatedBySoftware does not exist in any released SDK),
+        // so software-simulation detection relies on the simulator flag, the dyld
+        // image scan and the jailbreak checks below.
 
         let jailbreakPaths = [
             "/Applications/Cydia.app",

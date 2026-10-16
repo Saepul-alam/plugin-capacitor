@@ -1,0 +1,22 @@
+[
+    {
+        "merged": "/Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/build/intermediates/res/merged/release/anim-v21/design_bottom_sheet_slide_out.xml",
+        "source": "/Users/m/.gradle/caches/transforms-2/files-2.1/3411b6e453fa49100b8e17661de2eea3/material-1.2.1/res/anim-v21/design_bottom_sheet_slide_out.xml"
+    },
+    {
+        "merged": "/Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/build/intermediates/res/merged/release/anim-v21/mtrl_bottom_sheet_slide_in.xml",
+        "source": "/Users/m/.gradle/caches/transforms-2/files-2.1/3411b6e453fa49100b8e17661de2eea3/material-1.2.1/res/anim-v21/mtrl_bottom_sheet_slide_in.xml"
+    },
+    {
+        "merged": "/Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/build/intermediates/res/merged/release/anim-v21/fragment_fast_out_extra_slow_in.xml",
+        "source": "/Users/m/.gradle/caches/transforms-2/files-2.1/d8e6d61fabf25b5d32877ef018fdce13/fragment-1.3.4/res/anim-v21/fragment_fast_out_extra_slow_in.xml"
+    },
+    {
+        "merged": "/Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/build/intermediates/res/merged/release/anim-v21/mtrl_bottom_sheet_slide_out.xml",
+        "source": "/Users/m/.gradle/caches/transforms-2/files-2.1/3411b6e453fa49100b8e17661de2eea3/material-1.2.1/res/anim-v21/mtrl_bottom_sheet_slide_out.xml"
+    },
+    {
+        "merged": "/Users/MyFolders/project/magang/wahana/swb/web/dev/dcaf/src-capacitor/node_modules/@al/pluginsecure/src/android/build/intermediates/res/merged/release/anim-v21/design_bottom_sheet_slide_in.xml",
+        "source": "/Users/m/.gradle/caches/transforms-2/files-2.1/3411b6e453fa49100b8e17661de2eea3/material-1.2.1/res/anim-v21/design_bottom_sheet_slide_in.xml"
+    }
+]

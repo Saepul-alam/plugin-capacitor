@@ -3,6 +3,7 @@ import UIKit
 import AVFoundation
 import CoreLocation
 import CoreImage
+import ImageIO
 
 protocol CameraVerifiedDelegate: AnyObject {
     func didCapturePhoto(result: VerifiedPhotoResult)
@@ -40,8 +41,8 @@ struct VerifiedPhotoResult {
     let exif: [String: Any]
     let path: String?
 
-    func toJSObject() -> JSObject {
-        let obj = JSObject()
+    func toJSObject() -> [String: Any] {
+        var obj: [String: Any] = [:]
         obj["uri"] = uri
         if let base64 = base64 { obj["base64"] = base64 }
         if let dataUrl = dataUrl { obj["dataUrl"] = dataUrl }
@@ -122,19 +123,19 @@ class CameraVerifiedViewController: UIViewController {
 
     private func setupUI() {
         let captureBtn = UIButton(type: .system)
-        captureBtn.setImage(UIImage(systemName: "camera.circle.fill")?.withTintColor(.white, renderingMode: .alwaysOriginal), for: .normal)
+        setIcon(captureBtn, systemName: "camera.circle.fill", fallbackTitle: "Ambil")
         captureBtn.translatesAutoresizingMaskIntoConstraints = false
         captureBtn.addTarget(self, action: #selector(capturePhoto), for: .touchUpInside)
         view.addSubview(captureBtn)
 
         let cancelBtn = UIButton(type: .system)
-        cancelBtn.setImage(UIImage(systemName: "xmark.circle.fill")?.withTintColor(.white, renderingMode: .alwaysOriginal), for: .normal)
+        setIcon(cancelBtn, systemName: "xmark.circle.fill", fallbackTitle: "Batal")
         cancelBtn.translatesAutoresizingMaskIntoConstraints = false
         cancelBtn.addTarget(self, action: #selector(cancelCapture), for: .touchUpInside)
         view.addSubview(cancelBtn)
 
         let switchBtn = UIButton(type: .system)
-        switchBtn.setImage(UIImage(systemName: "camera.rotate.fill")?.withTintColor(.white, renderingMode: .alwaysOriginal), for: .normal)
+        setIcon(switchBtn, systemName: "camera.rotate.fill", fallbackTitle: "Balik")
         switchBtn.translatesAutoresizingMaskIntoConstraints = false
         switchBtn.addTarget(self, action: #selector(switchCamera), for: .touchUpInside)
         view.addSubview(switchBtn)
@@ -231,6 +232,19 @@ class CameraVerifiedViewController: UIViewController {
 
         session.addInput(input)
         session.commitConfiguration()
+    }
+
+    // UIImage(systemName:)/withTintColor need iOS 13; deployment target is iOS 11.
+    private func setIcon(_ button: UIButton, systemName: String, fallbackTitle: String) {
+        if #available(iOS 13.0, *) {
+            if let icon = UIImage(systemName: systemName)?.withTintColor(.white, renderingMode: .alwaysOriginal) {
+                button.setImage(icon, for: .normal)
+                return
+            }
+        }
+        button.setTitle(fallbackTitle, for: .normal)
+        button.setTitleColor(.white, for: .normal)
+        button.titleLabel?.font = UIFont.systemFont(ofSize: 15, weight: .semibold)
     }
 
     private func updateStatus(_ message: String) {
@@ -338,13 +352,18 @@ extension CameraVerifiedViewController: AVCapturePhotoCaptureDelegate {
 
         let verificationTag = String(format: "VERIFIED|ACCURACY:%.1f|AGE_MS:%d", location.horizontalAccuracy, gpsAgeMs)
         let exifDict: [CFString: Any] = [
-            kCGImagePropertyExifUserComment: verificationTag,
-            kCGImagePropertyExifSoftware: "PluginSecure/1.0"
+            kCGImagePropertyExifUserComment: verificationTag
+        ]
+        // EXIF "Software" (tag 0x0131) lives in the TIFF/IFD0 dictionary; the SDK
+        // has no kCGImagePropertyExifSoftware.
+        let tiffDict: [CFString: Any] = [
+            kCGImagePropertyTIFFSoftware: "PluginSecure/1.0"
         ]
 
         let properties: [CFString: Any] = [
             kCGImagePropertyGPSDictionary: gpsDict,
-            kCGImagePropertyExifDictionary: exifDict
+            kCGImagePropertyExifDictionary: exifDict,
+            kCGImagePropertyTIFFDictionary: tiffDict
         ]
 
         CGImageDestinationAddImageFromSource(dest, source, 0, properties as CFDictionary)
@@ -363,8 +382,15 @@ extension CameraVerifiedViewController: AVCapturePhotoCaptureDelegate {
 
             let watermarkText = "Lat: \(String(format: "%.6f", location.coordinate.latitude))  Lon: \(String(format: "%.6f", location.coordinate.longitude))  Acc: ±\(Int(location.horizontalAccuracy))m  \(timeStr)"
 
+            let font: UIFont
+            if #available(iOS 13.0, *) {
+                font = UIFont.monospacedSystemFont(ofSize: 16, weight: .medium)
+            } else {
+                font = UIFont.monospacedDigitSystemFont(ofSize: 16, weight: .medium)
+            }
+
             let attrs: [NSAttributedString.Key: Any] = [
-                .font: UIFont.monospacedSystemFont(ofSize: 16, weight: .medium),
+                .font: font,
                 .foregroundColor: UIColor.white,
                 .strokeColor: UIColor.black,
                 .strokeWidth: -3
@@ -416,8 +442,10 @@ extension CameraVerifiedViewController: CLLocationManagerDelegate {
         updateStatus("GPS error: \(error.localizedDescription)")
     }
 
-    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        switch manager.authorizationStatus {
+    // Pre-iOS 14 callback name: still invoked on every iOS version and free of
+    // availability issues against the iOS 11 deployment target.
+    func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
+        switch status {
         case .authorizedWhenInUse, .authorizedAlways:
             manager.startUpdatingLocation()
         case .denied, .restricted:
