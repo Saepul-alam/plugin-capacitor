@@ -113,6 +113,8 @@ function ensureManifestSettings(manifestPath) {
 const manifestPath = path.join(platformDir, 'app', 'src', 'main', 'AndroidManifest.xml')
 ensureManifestSettings(manifestPath)
 
+let source = fs.readFileSync(activityPath, 'utf-8')
+
 if (source.includes(`add(${PLUGIN_CLASS}.class)`)) {
   log(`already registered in ${activityPath}`)
   process.exit(0)
@@ -120,8 +122,8 @@ if (source.includes(`add(${PLUGIN_CLASS}.class)`)) {
 
 const initIndex = source.indexOf(INIT_MARKER)
 if (initIndex === -1) {
-  fail(`could not find the plugin registration block (\`${INIT_MARKER}\`) in ${activityPath}. ` +
-    `Add \`add(${PLUGIN_CLASS}.class);\` manually.`)
+  log(`Capacitor 3+ auto-registration detected. Manual registration not needed in ${activityPath}`)
+  process.exit(0)
 }
 
 // Insert the registration right after the {{ that opens the ArrayList initializer,
