@@ -274,17 +274,6 @@ class PluginSecurePlugin : Plugin() {
         super.handleOnStop()
     }
 
-    override fun handleOnSaveInstanceState(outState: Bundle) {
-        bridge?.webView?.saveState(outState)
-        bridge?.webView?.url?.let { stateHelper.saveState(it) }
-        super.handleOnSaveInstanceState(outState)
-    }
-
-    override fun handleOnRestoreInstanceState(inState: Bundle) {
-        super.handleOnRestoreInstanceState(inState)
-        bridge?.webView?.restoreState(inState)
-    }
-
     override fun handleOnDestroy() {
         monitoringJob?.cancel()
         monitoringJob = null
