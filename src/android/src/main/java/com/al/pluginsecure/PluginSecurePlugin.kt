@@ -1,38 +1,54 @@
 package com.al.pluginsecure
 
+import android.Manifest
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import android.view.View
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.activity.result.ActivityResult
 import androidx.fragment.app.FragmentActivity
 import com.getcapacitor.JSObject
-import com.getcapacitor.NativePlugin
+import com.getcapacitor.PermissionState
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
+import com.getcapacitor.annotation.ActivityCallback
+import com.getcapacitor.annotation.CapacitorPlugin
+import com.getcapacitor.annotation.Permission
+import com.getcapacitor.annotation.PermissionCallback
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-@NativePlugin(
+@CapacitorPlugin(
     name = "PluginSecure",
-    requestCodes = [
-        PluginSecurePlugin.REQUEST_CODE_CAMERA,
-        PluginSecurePlugin.REQUEST_CODE_BARCODE
+    permissions = [
+        Permission(
+            alias = "location",
+            strings = [
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ]
+        )
     ]
 )
 class PluginSecurePlugin : Plugin() {
     companion object {
-        const val REQUEST_CODE_CAMERA = 1001
-        const val REQUEST_CODE_BARCODE = 1002
+        private const val LOCATION_ALIAS = "location"
+        private const val LOCATION_PREFS = "plugin_secure_location_prefs"
+        private const val KEY_REQUIRE_LOCATION = "require_location"
     }
 
     private val gpsHelper by lazy { GPSVerificationHelper(context) }
@@ -41,8 +57,21 @@ class PluginSecurePlugin : Plugin() {
     private var errorOverlay: NativeErrorOverlay? = null
     private var monitoringJob: Job? = null
 
+    private lateinit var locationPrefs: SharedPreferences
+    private var requireLocation: Boolean = true
+
     override fun load() {
         super.load()
+
+        locationPrefs = context.getSharedPreferences(LOCATION_PREFS, Context.MODE_PRIVATE)
+        // Resolusi urutan: nilai tersimpan (runtime) -> config plugins.PluginSecure.requireLocation -> true
+        val configDefault = try {
+            getConfig().getBoolean("requireLocation", true)
+        } catch (_: Exception) {
+            true
+        }
+        requireLocation = locationPrefs.getBoolean(KEY_REQUIRE_LOCATION, configDefault)
+
         val act = activity ?: return
         val wv = bridge?.webView ?: return
 
@@ -100,19 +129,20 @@ class PluginSecurePlugin : Plugin() {
     }
 
     /** Launch an activity via SkeletonActivity to show placeholder UI */
-    private fun launchWithSkeleton(intent: Intent, requestCode: Int, call: PluginCall) {
+    private fun launchWithSkeleton(intent: Intent, callbackName: String, call: PluginCall) {
         // Prepare intent for SkeletonActivity with the target intent as extra
         val skeletonIntent = Intent(activity, SkeletonActivity::class.java).apply {
             putExtra(SkeletonActivity.EXTRA_TARGET_INTENT, intent)
         }
-        // Save the call so we can handle the result later
-        saveCall(call)
+        // Keep the call alive across the activity round-trip (Capacitor 3)
+        call.setKeepAlive(true)
         // Start SkeletonActivity; it will forward to the target after a short delay
-        startActivityForResult(call, skeletonIntent, requestCode)
+        startActivityForResult(call, skeletonIntent, callbackName)
     }
 
     @PluginMethod
     fun verifyGPS(call: PluginCall) {
+        if (!ensureLocationPermission(call)) return
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val result = gpsHelper.verifyGPS()
@@ -140,11 +170,12 @@ class PluginSecurePlugin : Plugin() {
 
     @PluginMethod
     fun captureVerifiedPhoto(call: PluginCall) {
+        if (!ensureLocationPermission(call)) return
         val intent = Intent(activity, CameraVerifiedActivity::class.java).apply {
             putExtra("options", call.data.toString())
         }
         // Use skeleton wrapper
-        launchWithSkeleton(intent, REQUEST_CODE_CAMERA, call)
+        launchWithSkeleton(intent, "cameraResult", call)
     }
 
     @PluginMethod
@@ -187,53 +218,50 @@ class PluginSecurePlugin : Plugin() {
             putExtra("prompt", call.getString("prompt"))
         }
         // Use skeleton wrapper
-        launchWithSkeleton(intent, REQUEST_CODE_BARCODE, call)
+        launchWithSkeleton(intent, "barcodeResult", call)
     }
 
-    override fun handleOnActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.handleOnActivityResult(requestCode, resultCode, data)
-        val savedCall = savedCall ?: return
+    @ActivityCallback
+    private fun cameraResult(call: PluginCall?, result: ActivityResult) {
+        if (call == null) return
+        val data = result.data
+        if (result.resultCode == Activity.RESULT_OK && data != null) {
+            val resultStr = data.getStringExtra("result") ?: "{}"
+            try {
+                call.resolve(JSObject(resultStr))
+            } catch (e: Exception) {
+                call.reject(nativeError("Failed to parse camera result: ${e.message}"))
+            }
+        } else {
+            val error = data?.getStringExtra("error") ?: "Photo capture cancelled"
+            call.reject(nativeError(error))
+        }
+    }
 
-        when (requestCode) {
-            REQUEST_CODE_CAMERA -> {
-                if (resultCode == Activity.RESULT_OK && data != null) {
-                    val resultStr = data.getStringExtra("result") ?: "{}"
-                    try {
-                        val jsObj = JSObject(resultStr)
-                        savedCall.resolve(jsObj)
-                    } catch (e: Exception) {
-                        savedCall.reject(nativeError("Failed to parse camera result: ${e.message}"))
-                    }
-                } else {
-                    val error = data?.getStringExtra("error") ?: "Photo capture cancelled"
-                    savedCall.reject(nativeError(error))
-                }
-                freeSavedCall()
+    @ActivityCallback
+    private fun barcodeResult(call: PluginCall?, result: ActivityResult) {
+        if (call == null) return
+        val data = result.data
+        if (result.resultCode == Activity.RESULT_OK && data != null) {
+            val resultStr = data.getStringExtra("result") ?: "{}"
+            try {
+                call.resolve(JSObject(resultStr))
+            } catch (e: Exception) {
+                call.reject(nativeError("Failed to parse barcode result: ${e.message}"))
             }
-            REQUEST_CODE_BARCODE -> {
-                if (resultCode == Activity.RESULT_OK && data != null) {
-                    val resultStr = data.getStringExtra("result") ?: "{}"
-                    try {
-                        val jsObj = JSObject(resultStr)
-                        savedCall.resolve(jsObj)
-                    } catch (e: Exception) {
-                        savedCall.reject(nativeError("Failed to parse barcode result: ${e.message}"))
-                    }
-                } else {
-                    // No content case – resolve with empty structure (unchanged)
-                    savedCall.resolve(JSObject().apply {
-                        put("hasContent", false)
-                        put("content", "")
-                        put("format", "NONE")
-                    })
-                }
-                freeSavedCall()
-            }
+        } else {
+            // No content case – resolve with empty structure (unchanged)
+            call.resolve(JSObject().apply {
+                put("hasContent", false)
+                put("content", "")
+                put("format", "NONE")
+            })
         }
     }
 
     @PluginMethod
     fun startGPSMonitoring(call: PluginCall) {
+        if (!ensureLocationPermission(call)) return
         val intervalMs = call.getInt("intervalMs", 30000) ?: 30000
         monitoringJob?.cancel()
 
@@ -262,6 +290,98 @@ class PluginSecurePlugin : Plugin() {
         monitoringJob = null
         gpsHelper.unregisterGnssListener()
         call.resolve()
+    }
+
+    // --- Location permission gate ------------------------------------------
+
+    /**
+     * Returns true when the call may proceed. When location is required but not
+     * yet granted, it triggers the OS permission prompt and keeps the call
+     * alive; the result is delivered by [locationPermissionCallback].
+     */
+    private fun ensureLocationPermission(call: PluginCall): Boolean {
+        if (!requireLocation) return true
+        if (getPermissionState(LOCATION_ALIAS) == PermissionState.GRANTED) return true
+        requestPermissionForAlias(LOCATION_ALIAS, call, "locationPermissionCallback")
+        return false
+    }
+
+    @PermissionCallback
+    private fun locationPermissionCallback(call: PluginCall) {
+        val granted = getPermissionState(LOCATION_ALIAS) == PermissionState.GRANTED
+        notifyListeners("locationPermissionChanged", JSObject().apply { put("granted", granted) })
+        if (granted) {
+            // Re-dispatch the original action now that permission is granted.
+            when (call.methodName) {
+                "verifyGPS" -> verifyGPS(call)
+                "startGPSMonitoring" -> startGPSMonitoring(call)
+                "captureVerifiedPhoto" -> captureVerifiedPhoto(call)
+                else -> call.resolve(JSObject().apply { put("granted", true) })
+            }
+        } else {
+            call.reject(
+                "Izin lokasi diperlukan untuk menggunakan fitur ini. Aktifkan izin lokasi di pengaturan aplikasi.",
+                "LOCATION_PERMISSION_DENIED"
+            )
+        }
+    }
+
+    @PluginMethod
+    fun checkLocationPermission(call: PluginCall) {
+        val state = getPermissionState(LOCATION_ALIAS)
+        call.resolve(JSObject().apply {
+            put("granted", state == PermissionState.GRANTED)
+            put("state", state?.toString() ?: "prompt")
+            put("required", requireLocation)
+        })
+    }
+
+    @PluginMethod
+    fun requestLocationPermission(call: PluginCall) {
+        if (getPermissionState(LOCATION_ALIAS) == PermissionState.GRANTED) {
+            call.resolve(JSObject().apply { put("granted", true) })
+            return
+        }
+        requestPermissionForAlias(LOCATION_ALIAS, call, "locationPermissionCallback")
+    }
+
+    @PluginMethod
+    fun isLocationRequired(call: PluginCall) {
+        call.resolve(JSObject().apply { put("enabled", requireLocation) })
+    }
+
+    @PluginMethod
+    fun setLocationRequired(call: PluginCall) {
+        val enabled = call.getBoolean("enabled", true) ?: true
+        requireLocation = enabled
+        locationPrefs.edit().putBoolean(KEY_REQUIRE_LOCATION, enabled).apply()
+        call.resolve(JSObject().apply { put("enabled", enabled) })
+    }
+
+    @PluginMethod
+    fun openAppSettings(call: PluginCall) {
+        try {
+            val intent = Intent(
+                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                Uri.fromParts("package", context.packageName, null)
+            ).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+            context.startActivity(intent)
+            call.resolve()
+        } catch (e: Exception) {
+            call.reject(nativeError("Tidak dapat membuka pengaturan aplikasi: ${e.message}"))
+        }
+    }
+
+    @PluginMethod
+    fun openLocationSettings(call: PluginCall) {
+        try {
+            val intent = Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
+                .apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+            context.startActivity(intent)
+            call.resolve()
+        } catch (e: Exception) {
+            call.reject(nativeError("Tidak dapat membuka pengaturan lokasi: ${e.message}"))
+        }
     }
 
     override fun handleOnPause() {

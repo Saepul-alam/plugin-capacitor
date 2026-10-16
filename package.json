@@ -1,6 +1,6 @@
 {
   "name": "@al/pluginsecure",
-  "version": "1.0.0",
+  "version": "1.0.01",
   "description": "Security anti-spoofing, verified camera, native error UI, and state preservation for Capacitor apps",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
@@ -20,6 +20,9 @@
     "prepare": "npm run build",
     "postinstall": "node scripts/auto-install.js"
   },
+  "bin": {
+    "pluginsecure-setup": "scripts/setup.js"
+  },
   "keywords": [
     "capacitor",
     "plugin",
@@ -32,11 +35,11 @@
   "author": "Saepul Alam <saepul.alam@example.com>",
   "license": "MIT",
   "peerDependencies": {
-    "@capacitor/core": ">=2.5.0 <3.0.0"
+    "@capacitor/core": ">=3.0.0 <4.0.0"
   },
   "devDependencies": {
     "typescript": "^4.5.0",
-    "@capacitor/core": "^2.5.0",
+    "@capacitor/core": "^3.9.0",
     "@types/node": "^16.0.0"
   },
   "capacitor": {

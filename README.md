@@ -1,6 +1,6 @@
 # @al/pluginsecure
 
-Capacitor 2 plugin providing native security features for hybrid apps:
+Capacitor 3 plugin providing native security features for hybrid apps:
 
 - **Fake GPS detection** — mock locations, spoofing apps, emulators (Android) and jailbreak hints (iOS).
 - **Device integrity** — root / jailbreak detection.
@@ -9,34 +9,39 @@ Capacitor 2 plugin providing native security features for hybrid apps:
 - **Biometric authentication** — fingerprint / face.
 - **Native error UI & state preservation** — optional native overlay and restore-last-route helpers.
 
-> This package targets **Capacitor 2** (`@capacitor/core >=2.5.0 <3.0.0`). It is verified against Quasar v1 (`@quasar/app` v2) Capacitor mode.
+> This package targets **Capacitor 3** (`@capacitor/core >=3.0.0 <4.0.0`). It is verified against Quasar v1 (`@quasar/app` v2) Capacitor mode.
 
 ## Installation (Quasar v1 + Capacitor mode)
 
-Capacitor plugins must be installed inside the Capacitor project, which Quasar creates at `src-capacitor`:
+Create the Capacitor project, install the plugin, then run the one-shot setup:
 
 ```bash
+npx quasar mode add capacitor
 cd src-capacitor
 npm i @al/pluginsecure
+npx pluginsecure-setup
 ```
 
-The `postinstall` hook then performs the whole native integration automatically:
+`npx pluginsecure-setup` performs the whole native integration:
 
-1. `cap sync` — wires the plugin into `capacitor.settings.gradle` / Xcode pods.
-2. `ensure-android.js` — registers `PluginSecurePlugin` in `MainActivity.java` (required by Capacitor 2).
-3. `pod install` on macOS (skip with `PLUGINSECURE_SKIP_POD_INSTALL=1`).
-4. Generates `src/boot/pluginsecure.js` in the Quasar app root and adds `'pluginsecure'` to the `boot` array in `quasar.conf.js`.
+1. **Upgrades `src-capacitor` to Capacitor 3.** `quasar mode add capacitor` still scaffolds Capacitor 2 (hard-coded in `@quasar/app`); the setup rewrites `src-capacitor/package.json` to `^3.9.0` and installs it.
+2. Ensures `www/index.html`, then adds the `android` platform (and `ios` on macOS).
+3. **Patches the Capacitor 3.9 Android template.** Its `cordovaAndroidVersion` pins `org.apache.cordova:framework:7.0.0`, which only ever lived on the now-defunct jcenter, so it also raises the dependency to a Maven Central release, bumps `minSdk` to 22 and adds `mavenCentral()`. Without this `gradlew assembleDebug` cannot resolve dependencies.
+4. `cap sync` — writes `capacitor.plugins.json`, which Capacitor 3 uses to **auto-register** `@CapacitorPlugin` classes. No `MainActivity.java` edit is required.
+5. `pod install` on macOS (skip with `PLUGINSECURE_SKIP_POD_INSTALL=1`; skip adding iOS with `PLUGINSECURE_SKIP_IOS=1`).
+6. Generates `src/boot/pluginsecure.js` in the Quasar app root and adds `'pluginsecure'` to the `boot` array in `quasar.conf.js`.
 
-Disable the whole hook with `PLUGINSECURE_SKIP_POSTINSTALL=1`.
+`npm i @al/pluginsecure` also runs a lightweight `postinstall` that only generates the boot file, so `quasar dev` works immediately (disable with `PLUGINSECURE_SKIP_POSTINSTALL=1`). It does **not** spawn `npm`/`cap` itself: a nested install from a lifecycle script races with the running install, and the top-level npm rewrites `package.json` afterwards.
+
+> Android builds require **JDK 11** — Capacitor 3.9's Gradle 7.0 / AGP 4.2.1 do not support JDK 17.
 
 ### Manual fallback
 
-If scripts were disabled (`npm i --ignore-scripts`) or the project layout is non-standard, run the steps yourself from `src-capacitor`:
+If scripts were disabled (`npm i --ignore-scripts`) or the project layout is non-standard, run the setup yourself from `src-capacitor`:
 
 ```bash
-npx cap sync android
-node node_modules/@al/pluginsecure/scripts/ensure-android.js android
-node node_modules/@al/pluginsecure/scripts/auto-install.js   # re-runs cap sync + ensure-android + boot file
+npm i @capacitor/core@^3 @capacitor/cli@^3 @capacitor/android@^3
+node node_modules/@al/pluginsecure/scripts/setup.js   # upgrade + platforms + sync + boot file
 ```
 
 Then build the native app:
@@ -64,9 +69,9 @@ async function verifyLocation () {
 You can also access the native plugin directly:
 
 ```js
-import { Capacitor } from '@capacitor/core'
+import { registerPlugin } from '@capacitor/core'
 
-const plugin = Capacitor.Plugins.PluginSecure
+const plugin = registerPlugin('PluginSecure')
 const photo = await plugin.captureVerifiedPhoto({ requireGPSVerification: true })
 ```
 
@@ -84,6 +89,23 @@ const photo = await plugin.captureVerifiedPhoto({ requireGPSVerification: true }
 | `showNativeError(options)` / `hideNativeError()` | Native error overlay. |
 | `saveAppState(options)` / `getLastAppState()` | Persist / read last route. |
 | `enableStatePreservation(options)` / `restoreLastAppState()` / `enableNativeFeel()` | State + UX helpers. |
+| `checkLocationPermission()` | Returns `{ granted, state, required }`. |
+| `requestLocationPermission()` | Requests runtime location permission; returns `{ granted, state }`. |
+| `isLocationRequired()` / `setLocationRequired({ enabled })` | Read / toggle the location requirement. |
+| `openAppSettings()` / `openLocationSettings()` | Open the app / location settings screens. |
+
+### Location permission gating
+
+When `requireLocation` is enabled (default), `verifyGPS()`, `captureVerifiedPhoto()` and `startGPSMonitoring()` first ensure the runtime location permission is granted: the plugin prompts the OS, then resumes the original call. Emits `locationPermissionChanged` with `{ granted }`. If the user denies, calls reject with code `LOCATION_PERMISSION_DENIED`.
+
+Configure the default via `capacitor.config.json`:
+
+```json
+{ "plugins": { "PluginSecure": { "requireLocation": true } } }
+```
+
+The generated `src/boot/pluginsecure.js` reads a `REQUIRE_LOCATION` constant (default `true`) and blocks the whole app with a full-screen gate when access is denied, offering buttons to the app / location settings. Set `REQUIRE_LOCATION = false` to disable the gate in that build; runtime state (`setLocationRequired`) overrides the config default.
+
 
 ### Web / browser (`quasar dev`)
 

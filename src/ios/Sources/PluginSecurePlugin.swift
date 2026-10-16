@@ -1,9 +1,12 @@
 import Foundation
 import Capacitor
 import CoreLocation
+import UIKit
 
 @objc(PluginSecurePlugin)
 public class PluginSecurePlugin: CAPPlugin, CAPBridgedPlugin {
+    private static let KEY_REQUIRE_LOCATION = "al_require_location"
+
     private static let methods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "verifyGPS", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "checkDeviceIntegrity", returnType: CAPPluginReturnPromise),
@@ -19,12 +22,18 @@ public class PluginSecurePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "getLastAppState", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "enableStatePreservation", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "restoreLastAppState", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "enableNativeFeel", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "enableNativeFeel", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "checkLocationPermission", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "requestLocationPermission", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "isLocationRequired", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setLocationRequired", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "openAppSettings", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "openLocationSettings", returnType: CAPPluginReturnPromise)
     ]
 
-    // Capacitor 2 discovers plugins by scanning the ObjC runtime for these
-    // CAPBridgedPlugin class methods (CAPBridge.swift) - the Capacitor 3-style
-    // instance properties (identifier/jsName/pluginMethods) do not exist here.
+    // Capacitor 2 and 3 discover plugins by scanning the ObjC runtime for these
+    // CAPBridgedPlugin class methods (CAPBridge.swift). The instance-property
+    // protocol (identifier/jsName/pluginMethods) only arrives in Capacitor 4.
     @objc public static func pluginId() -> String! {
         return "PluginSecure"
     }
@@ -47,7 +56,137 @@ public class PluginSecurePlugin: CAPPlugin, CAPBridgedPlugin {
     private var cameraCall: CAPPluginCall?
     private var barcodeCall: CAPPluginCall?
 
+    private var locationManager: CLLocationManager?
+    private var pendingLocationCall: CAPPluginCall?
+    private var pendingLocationAction: (() -> Void)?
+
+    // MARK: - Location permission gate
+
+    private func locationIsRequired() -> Bool {
+        if UserDefaults.standard.object(forKey: PluginSecurePlugin.KEY_REQUIRE_LOCATION) != nil {
+            return UserDefaults.standard.bool(forKey: PluginSecurePlugin.KEY_REQUIRE_LOCATION)
+        }
+        if let value = getConfig()["requireLocation"] as? Bool {
+            return value
+        }
+        return true
+    }
+
+    private func currentAuthStatus() -> CLAuthorizationStatus {
+        if #available(iOS 14.0, *) {
+            return locationManager?.authorizationStatus ?? CLLocationManager.authorizationStatus()
+        }
+        return CLLocationManager.authorizationStatus()
+    }
+
+    private func isLocationGranted(_ status: CLAuthorizationStatus) -> Bool {
+        return status == .authorizedWhenInUse || status == .authorizedAlways
+    }
+
+    /// Returns true when the action may proceed. When location is required but
+    /// unresolved, it triggers the OS prompt, stores the action and returns false.
+    private func requireLocationOrRequest(_ call: CAPPluginCall, action: @escaping () -> Void) -> Bool {
+        guard locationIsRequired() else { return true }
+        let status = currentAuthStatus()
+        if isLocationGranted(status) { return true }
+        if status == .denied || status == .restricted {
+            call.reject(
+                "Izin lokasi diperlukan untuk menggunakan fitur ini. Aktifkan izin lokasi di pengaturan aplikasi.",
+                "LOCATION_PERMISSION_DENIED"
+            )
+            return false
+        }
+        pendingLocationCall = call
+        pendingLocationAction = action
+        DispatchQueue.main.async {
+            if self.locationManager == nil {
+                self.locationManager = CLLocationManager()
+            }
+            self.locationManager?.delegate = self
+            self.locationManager?.requestWhenInUseAuthorization()
+        }
+        return false
+    }
+
+    private func resolvePendingLocation() {
+        guard let call = pendingLocationCall else { return }
+        let status = currentAuthStatus()
+        if isLocationGranted(status) {
+            let action = pendingLocationAction
+            pendingLocationCall = nil
+            pendingLocationAction = nil
+            notifyListeners("locationPermissionChanged", data: ["granted": true])
+            action?()
+        } else if status == .denied || status == .restricted {
+            pendingLocationCall = nil
+            pendingLocationAction = nil
+            notifyListeners("locationPermissionChanged", data: ["granted": false])
+            call.reject(
+                "Izin lokasi diperlukan untuk menggunakan fitur ini. Aktifkan izin lokasi di pengaturan aplikasi.",
+                "LOCATION_PERMISSION_DENIED"
+            )
+        }
+        // .notDetermined -> keep waiting for the user's decision
+    }
+
+    @objc func checkLocationPermission(_ call: CAPPluginCall) {
+        let status = currentAuthStatus()
+        call.resolve([
+            "granted": isLocationGranted(status),
+            "state": authStatusString(status),
+            "required": locationIsRequired()
+        ])
+    }
+
+    @objc func requestLocationPermission(_ call: CAPPluginCall) {
+        let status = currentAuthStatus()
+        if isLocationGranted(status) {
+            call.resolve(["granted": true])
+            return
+        }
+        _ = requireLocationOrRequest(call) {
+            call.resolve(["granted": true])
+        }
+    }
+
+    @objc func isLocationRequired(_ call: CAPPluginCall) {
+        call.resolve(["enabled": locationIsRequired()])
+    }
+
+    @objc func setLocationRequired(_ call: CAPPluginCall) {
+        let enabled = call.getBool("enabled", true)
+        UserDefaults.standard.set(enabled, forKey: PluginSecurePlugin.KEY_REQUIRE_LOCATION)
+        call.resolve(["enabled": enabled])
+    }
+
+    @objc func openAppSettings(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            if let url = URL(string: UIApplication.openSettingsURLString),
+               UIApplication.shared.canOpenURL(url) {
+                UIApplication.shared.open(url, options: [:], completionHandler: nil)
+            }
+            call.resolve()
+        }
+    }
+
+    @objc func openLocationSettings(_ call: CAPPluginCall) {
+        // iOS has no public per-location-settings URL; the app settings page is the closest.
+        openAppSettings(call)
+    }
+
+    private func authStatusString(_ status: CLAuthorizationStatus) -> String {
+        switch status {
+        case .authorizedAlways: return "granted"
+        case .authorizedWhenInUse: return "granted"
+        case .denied: return "denied"
+        case .restricted: return "denied"
+        case .notDetermined: return "prompt"
+        @unknown default: return "prompt"
+        }
+    }
+
     @objc func verifyGPS(_ call: CAPPluginCall) {
+        if !requireLocationOrRequest(call, action: { [weak self] in self?.verifyGPS(call) }) { return }
         let result = gpsHelper.verifyGPS()
         call.resolve(result.toJSObject())
     }
@@ -58,12 +197,13 @@ public class PluginSecurePlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     @objc func captureVerifiedPhoto(_ call: CAPPluginCall) {
+        if !requireLocationOrRequest(call, action: { [weak self] in self?.captureVerifiedPhoto(call) }) { return }
         self.cameraCall = call
         DispatchQueue.main.async {
             let vc = CameraVerifiedViewController()
             vc.options = VerifiedPhotoOptions(from: call.options as? [String: Any] ?? [:])
             vc.delegate = self
-            self.bridge?.viewController.present(vc, animated: true)
+            self.bridge?.viewController?.present(vc, animated: true)
         }
     }
 
@@ -96,11 +236,12 @@ public class PluginSecurePlugin: CAPPlugin, CAPBridgedPlugin {
             let vc = BarcodeScanViewController()
             vc.promptText = call.getString("prompt")
             vc.delegate = self
-            self.bridge?.viewController.present(vc, animated: true)
+            self.bridge?.viewController?.present(vc, animated: true)
         }
     }
 
     @objc func startGPSMonitoring(_ call: CAPPluginCall) {
+        if !requireLocationOrRequest(call, action: { [weak self] in self?.startGPSMonitoring(call) }) { return }
         let interval = call.getInt("intervalMs", 30000) ?? 30000
         monitoringTimer?.invalidate()
         monitoringTimer = Timer.scheduledTimer(withTimeInterval: TimeInterval(interval)/1000, repeats: true) { _ in
@@ -165,7 +306,7 @@ extension PluginSecurePlugin: BarcodeScanDelegate {
                 }))
             }
             alert.addAction(UIAlertAction(title: "Tutup", style: .cancel, handler: nil))
-            self.bridge?.viewController.present(alert, animated: true, completion: nil)
+            self.bridge?.viewController?.present(alert, animated: true, completion: nil)
             call.resolve()
         }
     }
@@ -215,5 +356,15 @@ extension PluginSecurePlugin: BarcodeScanDelegate {
             self.bridge?.webView?.scrollView.bounces = false
             call.resolve()
         }
+    }
+}
+
+extension PluginSecurePlugin: CLLocationManagerDelegate {
+    public func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        resolvePendingLocation()
+    }
+
+    public func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
+        resolvePendingLocation()
     }
 }

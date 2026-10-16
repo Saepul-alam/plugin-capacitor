@@ -25,6 +25,31 @@
     {
       "name": "stopGPSMonitoring",
       "returnType": "Promise<void>"
+    },
+    {
+      "name": "checkLocationPermission",
+      "returnType": "Promise<LocationPermissionResult>"
+    },
+    {
+      "name": "requestLocationPermission",
+      "returnType": "Promise<LocationPermissionResult>"
+    },
+    {
+      "name": "isLocationRequired",
+      "returnType": "Promise<LocationRequiredResult>"
+    },
+    {
+      "name": "setLocationRequired",
+      "options": "{ enabled: boolean }",
+      "returnType": "Promise<LocationRequiredResult>"
+    },
+    {
+      "name": "openAppSettings",
+      "returnType": "Promise<void>"
+    },
+    {
+      "name": "openLocationSettings",
+      "returnType": "Promise<void>"
     }
   ],
   "events": [
@@ -35,6 +60,10 @@
     {
       "name": "deviceIntegrityChanged",
       "data": "DeviceIntegrityResult"
+    },
+    {
+      "name": "locationPermissionChanged",
+      "data": "{ granted: boolean }"
     }
   ],
   "ios": {

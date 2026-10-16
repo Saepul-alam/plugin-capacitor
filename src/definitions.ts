@@ -102,6 +102,18 @@ export interface StatePreservationOptions {
   maxAgeMinutes?: number;
 }
 
+export type LocationPermissionState = 'granted' | 'denied' | 'prompt';
+
+export interface LocationPermissionResult {
+  granted: boolean;
+  state: LocationPermissionState | string;
+  required?: boolean;
+}
+
+export interface LocationRequiredResult {
+  enabled: boolean;
+}
+
 export interface PluginSecurePlugin {
   verifyGPS(): Promise<GPSVerificationResult>;
   startGPSMonitoring(options?: { intervalMs?: number }): Promise<void>;
@@ -118,12 +130,19 @@ export interface PluginSecurePlugin {
   enableStatePreservation(options?: { enabled: boolean }): Promise<void>;
   restoreLastAppState(): Promise<{ restored: boolean }>;
   enableNativeFeel(): Promise<void>;
-  // Capacitor 2's WebPlugin returns the handle synchronously and removeAllListeners()
-  // returns void (dist/esm/web/index.d.ts:47,49). The Promise<> forms are Capacitor 3.
-  addListener(event: 'gpsMockDetected', callback: (data: GPSVerificationResult) => void): PluginListenerHandle;
-  addListener(event: 'deviceIntegrityChanged', callback: (data: DeviceIntegrityResult) => void): PluginListenerHandle;
-  addListener(event: 'nativeErrorRetry', callback: () => void): PluginListenerHandle;
-  removeAllListeners(): void;
+  checkLocationPermission(): Promise<LocationPermissionResult>;
+  requestLocationPermission(): Promise<LocationPermissionResult>;
+  isLocationRequired(): Promise<LocationRequiredResult>;
+  setLocationRequired(options: { enabled: boolean }): Promise<LocationRequiredResult>;
+  openAppSettings(): Promise<void>;
+  openLocationSettings(): Promise<void>;
+  // Capacitor 3's WebPlugin returns a promise that is also a handle, and
+  // removeAllListeners() returns a Promise (core/web-plugin.d.ts).
+  addListener(event: 'gpsMockDetected', callback: (data: GPSVerificationResult) => void): Promise<PluginListenerHandle> & PluginListenerHandle;
+  addListener(event: 'deviceIntegrityChanged', callback: (data: DeviceIntegrityResult) => void): Promise<PluginListenerHandle> & PluginListenerHandle;
+  addListener(event: 'nativeErrorRetry', callback: () => void): Promise<PluginListenerHandle> & PluginListenerHandle;
+  addListener(event: 'locationPermissionChanged', callback: (data: { granted: boolean }) => void): Promise<PluginListenerHandle> & PluginListenerHandle;
+  removeAllListeners(): Promise<void>;
 }
 
 export const PluginSecure = 'PluginSecure';
