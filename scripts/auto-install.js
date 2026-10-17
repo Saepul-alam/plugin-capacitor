@@ -437,11 +437,11 @@ export const PluginSecureService = {
   openAppSettings: passThrough('openAppSettings'),
   openLocationSettings: passThrough('openLocationSettings'),
   getCameraConfig: refreshCameraConfig,
-  setCameraFeature,
+  setCameraFeature: ({ feature, enabled } = {}) => setCameraFeature(feature, enabled),
   captureBurst,
   startCameraStream,
   stopCameraStream,
-  setCameraTorch,
+  setCameraTorch: ({ enabled } = {}) => setCameraTorch(enabled),
   startVideoRecording,
   stopVideoRecording
 }
