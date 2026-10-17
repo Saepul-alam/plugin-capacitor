@@ -589,7 +589,6 @@ const CameraOverride = {
     if (typeof cap.nativePromise !== 'function') return
     const before = cap.nativePromise
     const originalNativePromise = before.bind(cap)
-    const self = this
     try {
       cap.nativePromise = function (pluginName, methodName, options) {
         if (
@@ -655,7 +654,7 @@ const CameraStream = {
     this.facingMode = video.facingMode === 'user' ? 'user' : 'environment'
     const width = (video.width && (video.width.ideal || video.width)) || 640
     const height = (video.height && (video.height.ideal || video.height)) || 480
-    const fps = video.frameRate && (video.frameRate.ideal || video.frameRate) || 15
+    const fps = (video.frameRate && (video.frameRate.ideal || video.frameRate)) || 15
 
     this.canvas = document.createElement('canvas')
     this.canvas.width = width
