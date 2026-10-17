@@ -7,6 +7,7 @@ Plugin Capacitor 3 yang menyediakan fitur keamanan native untuk aplikasi hybrid 
 - **Scan Barcode / QR** — ML Kit (Android) / AVFoundation (iOS).
 - **Autentikasi biometrik** — sidik jari / wajah.
 - **Gate izin lokasi** — opsional mewajibkan akses lokasi dan memblokir app dengan pintasan ke pengaturan saat izin ditolak.
+- **Integrasi kamera transparan (aktif default)** — boot file yang di-generate mengarahkan `Camera.getPhoto()` dari `@capacitor/camera` ke kamera terverifikasi native dan mem-polyfill `navigator.mediaDevices.getUserMedia()` dengan stream kamera native, sehingga kode barcode/wajah/preview yang ada tetap berjalan tanpa diubah. Juga mengekspos API native **burst capture**, **watermark** dan **rekam video**. Semuanya bisa dimatikan satu per satu.
 - **Native error UI & state safety** — overlay error native; cold start selalu fresh (state preservation bersifat opt-in).
 
 > Menargetkan **Capacitor 3** (`@capacitor/core >=3.0.0 <4.0.0`). Terverifikasi pada Quasar v1 (`@quasar/app` v2) mode Capacitor.
@@ -17,7 +18,7 @@ Plugin Capacitor 3 yang menyediakan fitur keamanan native untuk aplikasi hybrid 
 
 - Node.js 14+ dan npm 6+.
 - **JDK 11** untuk build Android — Gradle 7.0 / AGP 4.2.1 di Capacitor 3.9 tidak mendukung JDK 17.
-- Android SDK (`ANDROID_HOME`) dengan build-tools 30.0.3.
+- Android SDK (`ANDROID_HOME`) dengan build-tools 30.0.3 dan **`compileSdkVersion 31`** — artefak CameraX 1.1.x (camera-video) mendeklarasikan `minCompileSdk=31`.
 - iOS: macOS, Xcode 11+, CocoaPods.
 
 ## Pemasangan (Quasar v1 + mode Capacitor)
@@ -88,12 +89,18 @@ Semua opsi berada di bawah `plugins.PluginSecure` pada `src-capacitor/capacitor.
 | --- | --- | --- | --- |
 | `requireLocation` | boolean | `true` | Mewajibkan izin lokasi runtime. Bila ditolak, boot file yang di-generate menampilkan gate layar penuh dengan pintasan ke pengaturan app/lokasi. |
 | `statePreservation` | boolean | `false` | Opt-in (default nonaktif). Bila diaktifkan, memulihkan rute terakhir saat cold start (best-effort, close-aware). Bila nonaktif, setiap cold start fresh — multitasking tetap di halaman yang sama karena WebView dibiarkan hidup di background. |
+| `cameraOverride` | boolean | `true` | Arahkan `Camera.getPhoto()` (dari `@capacitor/camera`) ke kamera terverifikasi native. Fail-safe: jika ada error, call asli tetap dijalankan. |
+| `cameraStream` | boolean | `true` | Polyfill `navigator.mediaDevices.getUserMedia({ video: true })` dengan stream kamera native (frame → `canvas.captureStream()`). Audio tidak dijembatani. Fallback ke implementasi browser bila gagal. |
+| `captureBurst` | boolean | `true` | Aktifkan API native `captureBurst()` (capture multi-frame untuk flow liveness/perspektif). |
+| `videoRecorder` | boolean | `true` | Aktifkan API native `startVideoRecording()` / `stopVideoRecording()`. |
+| `watermark` | boolean | `true` | Tempel GPS + timestamp ke foto hasil capture secara default. |
 
 Keduanya bisa ditimpa saat runtime (tersimpan di perangkat):
 
 ```js
 await this.$pluginsecure.setLocationRequired({ enabled: false })
 await this.$pluginsecure.enableStatePreservation({ enabled: false })
+await this.$pluginsecure.setCameraFeature({ feature: 'cameraOverride', enabled: false })
 ```
 
 > Mengubah `capacitor.config.json` perlu `npx cap sync` (atau jalankan ulang `pluginsecure-setup`).
@@ -106,6 +113,30 @@ await this.$pluginsecure.enableStatePreservation({ enabled: false })
 | User menutup app (swipe dari Recents, atau back-exit) | **Fresh** — mulai dari halaman awal saat dibuka lagi. |
 | Cold start dengan alasan apa pun (default `statePreservation: false`) | **Fresh** di setiap cold start. |
 | `statePreservation: true` (opt-in) | Resume halaman terakhir secara best-effort saat cold start (close-aware). |
+
+### Fitur kamera (aktif default)
+
+Boot file yang di-generate memasang dua integrasi transparan begitu plugin native tersedia:
+
+1. **Override `Camera.getPhoto()`.** Setiap panggilan `Camera.getPhoto()` dari `@capacitor/camera` diarahkan ke kamera terverifikasi native lalu dikonversi kembali ke bentuk `Photo` Capacitor (`base64String`, `dataUrl`, `path`, `webPath`, `format`, `exif`). Jika ada yang gagal, call asli dijalankan apa adanya, jadi tidak ada fitur yang mati total.
+2. **Polyfill `getUserMedia()`.** `navigator.mediaDevices.getUserMedia({ video: true })` dilayani dari stream kamera native: sisi native mengirim frame JPEG lewat event `cameraFrame` dan boot file menggambarnya ke `<canvas>` yang diekspos lewat `canvas.captureStream()`. Kode live-preview, Quagga / barcode, dan `@vladmandic/face-api` yang ada tetap berjalan **tanpa ubah app**. `applyConstraints({ advanced: [{ torch }] })` dan ganti `facingMode` diemulasi. Hanya video: constraint `audio` fallback ke implementasi browser.
+
+API native tambahan (opt-in, semua aktif default lewat flag):
+
+```js
+// Capture multi-frame untuk flow liveness / multi-pose (native).
+const { frames } = await this.$pluginsecure.captureBurst({ count: 5, intervalMs: 250, direction: 'front' })
+
+// Perekam video native layar penuh (CameraX VideoCapture / AVFoundation).
+const { uri, path, durationMs } = await this.$pluginsecure.startVideoRecording({ quality: 'high' })
+
+// Kontrol stream kamera langsung (biasanya ditangani polyfill getUserMedia).
+await this.$pluginsecure.startCameraStream({ facingMode: 'environment', width: 640, height: 480 })
+await this.$pluginsecure.setCameraTorch({ enabled: true })
+await this.$pluginsecure.stopCameraStream()
+```
+
+> **Android:** perekam video memakai CameraX 1.1.x, sehingga app host harus menyetel `compileSdkVersion 31` (atau lebih baru). Tanpa itu Gradle gagal di `checkDebugAarMetadata`. Rekam video iOS belum diimplementasikan (method akan reject).
 
 ## Penggunaan
 
@@ -147,6 +178,12 @@ const photo = await plugin.captureVerifiedPhoto({ requireGPSVerification: true }
 | `requestLocationPermission()` | Meminta izin lokasi runtime; mengembalikan `{ granted, state }`. |
 | `isLocationRequired()` / `setLocationRequired({ enabled })` | Baca / ubah kewajiban lokasi. |
 | `openAppSettings()` / `openLocationSettings()` | Buka layar pengaturan app / lokasi. |
+| `getCameraConfig()` | Mengembalikan lima flag fitur kamera. |
+| `setCameraFeature({ feature, enabled })` | Ubah satu flag kamera; mengembalikan config terbaru. |
+| `captureBurst(options)` | Capture multi-frame native; mengembalikan `{ frames, exif }`. |
+| `startCameraStream(options)` / `stopCameraStream()` | Stream kamera native headless yang memancarkan `cameraFrame`. |
+| `setCameraTorch({ enabled })` | Kontrol torch untuk stream aktif. |
+| `startVideoRecording(options)` / `stopVideoRecording()` | Perekam video native; mengembalikan `{ uri, path, durationMs, hasAudio }`. |
 
 ### Event
 
@@ -156,6 +193,7 @@ const photo = await plugin.captureVerifiedPhoto({ requireGPSVerification: true }
 | `deviceIntegrityChanged` | `DeviceIntegrityResult` |
 | `nativeErrorRetry` | — |
 | `locationPermissionChanged` | `{ granted: boolean }` |
+| `cameraFrame` | `{ base64: string, timestamp: number, facingMode?: string }` |
 
 ### Gate izin lokasi
 
@@ -187,6 +225,7 @@ Manifest plugin menyumbang berikut (digabung otomatis oleh `cap sync`):
 - `android.permission.ACCESS_FINE_LOCATION`
 - `android.permission.ACCESS_COARSE_LOCATION`
 - `android.permission.CAMERA`
+- `android.permission.RECORD_AUDIO` (rekam video native)
 - `android.permission.USE_BIOMETRIC`
 - `android.permission.VIBRATE`
 

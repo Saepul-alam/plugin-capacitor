@@ -7,6 +7,7 @@ Capacitor 3 plugin providing native security features for hybrid (Quasar v1) app
 - **Barcode / QR scanning** — ML Kit (Android) / AVFoundation (iOS).
 - **Biometric authentication** — fingerprint / face.
 - **Location permission gating** — optionally requires location access and blocks the app with a settings shortcut when denied.
+- **Transparent camera integration (auto-on)** — the generated boot file routes `@capacitor/camera`'s `Camera.getPhoto()` to the native verified camera and polyfills `navigator.mediaDevices.getUserMedia()` with a native camera stream, so existing barcode/face/preview code keeps working unmodified. Also exposes native **burst capture**, **watermark** and **video recording** APIs. All individually disableable.
 - **Native error UI & state safety** — native overlay; cold starts are always fresh (state preservation is opt-in).
 
 > Targets **Capacitor 3** (`@capacitor/core >=3.0.0 <4.0.0`). Verified against Quasar v1 (`@quasar/app` v2) Capacitor mode.
@@ -17,7 +18,7 @@ Capacitor 3 plugin providing native security features for hybrid (Quasar v1) app
 
 - Node.js 14+ and npm 6+.
 - **JDK 11** for Android builds — Capacitor 3.9's Gradle 7.0 / AGP 4.2.1 do not support JDK 17.
-- Android SDK (`ANDROID_HOME`) with build-tools 30.0.3.
+- Android SDK (`ANDROID_HOME`) with build-tools 30.0.3 and **`compileSdkVersion 31`** — the CameraX 1.1.x artifacts (camera-video) declare `minCompileSdk=31`.
 - iOS: macOS, Xcode 11+, CocoaPods.
 
 ## Installation (Quasar v1 + Capacitor mode)
@@ -88,12 +89,18 @@ All options live under `plugins.PluginSecure` in `src-capacitor/capacitor.config
 | --- | --- | --- | --- |
 | `requireLocation` | boolean | `true` | Make the app require runtime location permission. When denied, the generated boot file shows a full-screen gate with shortcuts to the app/location settings. |
 | `statePreservation` | boolean | `false` | Opt-in (default off). When enabled, restores the last route on cold start (best-effort, close-aware). When disabled, every cold start is fresh — multitasking still keeps the current page because the WebView stays alive in the background. |
+| `cameraOverride` | boolean | `true` | Route `Camera.getPhoto()` (from `@capacitor/camera`) to the native verified camera. Fail-safe: on any error the original browser/native call runs. |
+| `cameraStream` | boolean | `true` | Polyfill `navigator.mediaDevices.getUserMedia({ video: true })` with a native camera stream (frames → `canvas.captureStream()`). Audio is not bridged. Falls back to the browser implementation on failure. |
+| `captureBurst` | boolean | `true` | Enable the native `captureBurst()` API (multi-frame capture for liveness/perspective flows). |
+| `videoRecorder` | boolean | `true` | Enable the native `startVideoRecording()` / `stopVideoRecording()` API. |
+| `watermark` | boolean | `true` | Burn GPS + timestamp onto captured photos by default. |
 
 Both can be overridden at runtime (persisted on the device):
 
 ```js
 await this.$pluginsecure.setLocationRequired({ enabled: false })
 await this.$pluginsecure.enableStatePreservation({ enabled: false })
+await this.$pluginsecure.setCameraFeature({ feature: 'cameraOverride', enabled: false })
 ```
 
 > Changing `capacitor.config.json` requires `npx cap sync` (or re-running `pluginsecure-setup`).
@@ -106,6 +113,30 @@ await this.$pluginsecure.enableStatePreservation({ enabled: false })
 | User closes the app (swipe from Recents, or back-exit) | **Fresh** — starts from the initial page on next open. |
 | Cold start for any reason (default `statePreservation: false`) | **Fresh** on every cold start. |
 | `statePreservation: true` (opt-in) | Best-effort resume of the last page on cold start (close-aware). |
+
+### Camera features (default on)
+
+The generated boot file installs two transparent integrations the moment the native plugin is present:
+
+1. **`Camera.getPhoto()` override.** Any call to `@capacitor/camera`'s `Camera.getPhoto()` is routed to the native verified camera and converted back to the Capacitor `Photo` shape (`base64String`, `dataUrl`, `path`, `webPath`, `format`, `exif`). If anything goes wrong the original call runs unchanged, so no feature ever hard-breaks.
+2. **`getUserMedia()` polyfill.** `navigator.mediaDevices.getUserMedia({ video: true })` is served from a native camera stream: the native side pushes JPEG frames via the `cameraFrame` event and the boot file paints them into a `<canvas>` exposed through `canvas.captureStream()`. Existing live-preview, Quagga / barcode and `@vladmandic/face-api` code keeps working with **no app changes**. `applyConstraints({ advanced: [{ torch }] })` and `facingMode` switching are emulated. Video-only: `audio` constraints fall back to the browser implementation.
+
+Extra native APIs (opt-in, all default-on via flags):
+
+```js
+// Multi-frame capture for liveness / multi-pose flows (native).
+const { frames } = await this.$pluginsecure.captureBurst({ count: 5, intervalMs: 250, direction: 'front' })
+
+// Full-screen native video recorder (CameraX VideoCapture / AVFoundation).
+const { uri, path, durationMs } = await this.$pluginsecure.startVideoRecording({ quality: 'high' })
+
+// Direct camera-stream control (usually handled by the getUserMedia polyfill).
+await this.$pluginsecure.startCameraStream({ facingMode: 'environment', width: 640, height: 480 })
+await this.$pluginsecure.setCameraTorch({ enabled: true })
+await this.$pluginsecure.stopCameraStream()
+```
+
+> **Android:** the video recorder uses CameraX 1.1.x, so the host app must set `compileSdkVersion 31` (or newer). Without it Gradle fails `checkDebugAarMetadata`. iOS video recording is not yet implemented (the methods reject).
 
 ## Usage
 
@@ -147,6 +178,12 @@ const photo = await plugin.captureVerifiedPhoto({ requireGPSVerification: true }
 | `requestLocationPermission()` | Requests runtime location permission; returns `{ granted, state }`. |
 | `isLocationRequired()` / `setLocationRequired({ enabled })` | Read / toggle the location requirement. |
 | `openAppSettings()` / `openLocationSettings()` | Open the app / location settings screens. |
+| `getCameraConfig()` | Returns the five camera feature flags. |
+| `setCameraFeature({ feature, enabled })` | Toggle one camera flag; returns the updated config. |
+| `captureBurst(options)` | Native multi-frame capture; returns `{ frames, exif }`. |
+| `startCameraStream(options)` / `stopCameraStream()` | Native headless camera stream emitting `cameraFrame`. |
+| `setCameraTorch({ enabled })` | Torch control for the active stream. |
+| `startVideoRecording(options)` / `stopVideoRecording()` | Native video recorder; returns `{ uri, path, durationMs, hasAudio }`. |
 
 ### Events
 
@@ -156,6 +193,7 @@ const photo = await plugin.captureVerifiedPhoto({ requireGPSVerification: true }
 | `deviceIntegrityChanged` | `DeviceIntegrityResult` |
 | `nativeErrorRetry` | — |
 | `locationPermissionChanged` | `{ granted: boolean }` |
+| `cameraFrame` | `{ base64: string, timestamp: number, facingMode?: string }` |
 
 ### Location permission gating
 
@@ -187,6 +225,7 @@ The plugin manifest contributes the following (merged automatically by `cap sync
 - `android.permission.ACCESS_FINE_LOCATION`
 - `android.permission.ACCESS_COARSE_LOCATION`
 - `android.permission.CAMERA`
+- `android.permission.RECORD_AUDIO` (native video recording)
 - `android.permission.USE_BIOMETRIC`
 - `android.permission.VIBRATE`
 

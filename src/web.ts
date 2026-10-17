@@ -13,7 +13,14 @@ import {
   NativeErrorOptions,
   AppStateData,
   LocationPermissionResult,
-  LocationRequiredResult
+  LocationRequiredResult,
+  CameraConfig,
+  CameraFeature,
+  CaptureBurstOptions,
+  CaptureBurstResult,
+  CameraStreamOptions,
+  VideoRecordingOptions,
+  VideoRecordingResult
 } from './definitions';
 
 export class PluginSecureWeb extends WebPlugin implements PluginSecurePlugin {
@@ -151,5 +158,48 @@ export class PluginSecureWeb extends WebPlugin implements PluginSecurePlugin {
 
   async openLocationSettings(): Promise<void> {
     console.warn('[PluginSecure] openLocationSettings() not available on web');
+  }
+
+  private cameraFlags: CameraConfig = {
+    cameraOverride: true,
+    cameraStream: true,
+    captureBurst: true,
+    videoRecorder: true,
+    watermark: true
+  };
+
+  async getCameraConfig(): Promise<CameraConfig> {
+    return { ...this.cameraFlags };
+  }
+
+  async setCameraFeature(options: { feature: CameraFeature; enabled: boolean }): Promise<CameraConfig> {
+    if (options && options.feature in this.cameraFlags) {
+      (this.cameraFlags as any)[options.feature] = !!options.enabled;
+    }
+    return { ...this.cameraFlags };
+  }
+
+  async captureBurst(options?: CaptureBurstOptions): Promise<CaptureBurstResult> {
+    console.warn('[PluginSecure] captureBurst() has no web implementation; returning empty set');
+    return { frames: [], exif: { latitude: 0, longitude: 0, altitude: 0, accuracy: -1, timestamp: Date.now(), isVerified: false, verificationDetails: 'WEB_UNAVAILABLE' } };
+  }
+
+  async startCameraStream(options?: CameraStreamOptions): Promise<{ started: boolean }> {
+    console.warn('[PluginSecure] startCameraStream() not available on web');
+    return { started: false };
+  }
+
+  async stopCameraStream(): Promise<void> {}
+
+  async setCameraTorch(options: { enabled: boolean }): Promise<void> {
+    console.warn('[PluginSecure] setCameraTorch() not available on web');
+  }
+
+  async startVideoRecording(options?: VideoRecordingOptions): Promise<{ started: boolean }> {
+    throw new Error('Native video recording requires Android/iOS.');
+  }
+
+  async stopVideoRecording(): Promise<VideoRecordingResult> {
+    throw new Error('Native video recording requires Android/iOS.');
   }
 }

@@ -36,13 +36,16 @@ dependencies {
     // Capacitor - supplied by the host project
     implementation project(':capacitor-android')
 
-    // CameraX - versions that still compile against compileSdk 29.
+    // CameraX 1.1.x. camera-video (VideoCapture/Recorder) is only available from
+    // 1.1.0 onwards. NOTE: this family of artifacts declares minCompileSdk=31, so
+    // the host app must compile against android-31 or newer.
     // camera-lifecycle is required for androidx.camera.lifecycle.ProcessCameraProvider
     // (bindToLifecycle / unbindAll); camera-core alone does not provide it.
-    implementation "androidx.camera:camera-core:1.0.2"
-    implementation "androidx.camera:camera-camera2:1.0.2"
-    implementation "androidx.camera:camera-lifecycle:1.0.2"
-    implementation "androidx.camera:camera-view:1.0.0-alpha20"
+    implementation "androidx.camera:camera-core:1.1.0"
+    implementation "androidx.camera:camera-camera2:1.1.0"
+    implementation "androidx.camera:camera-lifecycle:1.1.0"
+    implementation "androidx.camera:camera-view:1.1.0"
+    implementation "androidx.camera:camera-video:1.1.0"
 
     // Lifecycle - needed for lifecycle references
     implementation "androidx.lifecycle:lifecycle-process:2.3.1"

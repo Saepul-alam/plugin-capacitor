@@ -163,9 +163,14 @@ function patchAndroidProject (capDir) {
       /(minSdkVersion\s*=\s*)(\d+)/,
       (match, head, value) => (Number(value) < 22 ? `${head}22` : match)
     )
+    // CameraX 1.1.x (camera-video) declares minCompileSdk=31.
+    next = next.replace(
+      /(compileSdkVersion\s*=\s*)(\d+)/,
+      (match, head, value) => (Number(value) < 31 ? `${head}31` : match)
+    )
     if (next !== source) {
       fs.writeFileSync(variables, next)
-      log('patched android/variables.gradle (cordova 10.1.1, minSdk >= 22)')
+      log('patched android/variables.gradle (cordova 10.1.1, minSdk >= 22, compileSdk >= 31)')
     }
   }
 
@@ -348,6 +353,67 @@ function passThrough (method, fallback) {
   }
 }
 
+// --- Camera features (generic, auto-on) -------------------------------------
+// All flags default to true and can be disabled from capacitor.config.json or
+// at runtime via setCameraFeature({ feature, enabled }).
+let cameraConfig = {
+  cameraOverride: true,
+  cameraStream: true,
+  captureBurst: true,
+  videoRecorder: true,
+  watermark: true
+}
+
+async function refreshCameraConfig () {
+  if (!hasMethod('getCameraConfig')) return cameraConfig
+  try {
+    cameraConfig = await PluginSecure.getCameraConfig()
+  } catch (e) { /* keep defaults */ }
+  return cameraConfig
+}
+
+async function setCameraFeature (feature, enabled) {
+  if (hasMethod('setCameraFeature')) {
+    cameraConfig = await PluginSecure.setCameraFeature({ feature, enabled: !!enabled })
+  } else {
+    cameraConfig = Object.assign({}, cameraConfig, { [feature]: !!enabled })
+  }
+  return cameraConfig
+}
+
+async function captureBurst (options = {}) {
+  if (hasMethod('captureBurst')) {
+    return PluginSecure.captureBurst(options)
+  }
+  return {
+    frames: [],
+    exif: { latitude: 0, longitude: 0, altitude: 0, accuracy: -1, timestamp: Date.now(), isVerified: false, verificationDetails: 'WEB_UNAVAILABLE' }
+  }
+}
+
+async function startCameraStream (options = {}) {
+  if (hasMethod('startCameraStream')) return PluginSecure.startCameraStream(options)
+  return { started: false }
+}
+
+async function stopCameraStream () {
+  if (hasMethod('stopCameraStream')) return PluginSecure.stopCameraStream()
+}
+
+async function setCameraTorch (enabled) {
+  if (hasMethod('setCameraTorch')) return PluginSecure.setCameraTorch({ enabled: !!enabled })
+}
+
+async function startVideoRecording (options = {}) {
+  if (hasMethod('startVideoRecording')) return PluginSecure.startVideoRecording(options)
+  return { started: false }
+}
+
+async function stopVideoRecording () {
+  if (hasMethod('stopVideoRecording')) return PluginSecure.stopVideoRecording()
+  return { uri: '', durationMs: 0, hasAudio: false }
+}
+
 export const PluginSecureService = {
   verifyGPS,
   captureVerifiedPhoto,
@@ -369,7 +435,15 @@ export const PluginSecureService = {
   isLocationRequired: passThrough('isLocationRequired', { enabled: false }),
   setLocationRequired: passThrough('setLocationRequired', { enabled: false }),
   openAppSettings: passThrough('openAppSettings'),
-  openLocationSettings: passThrough('openLocationSettings')
+  openLocationSettings: passThrough('openLocationSettings'),
+  getCameraConfig: refreshCameraConfig,
+  setCameraFeature,
+  captureBurst,
+  startCameraStream,
+  stopCameraStream,
+  setCameraTorch,
+  startVideoRecording,
+  stopVideoRecording
 }
 
 // Location gate. Controlled entirely from capacitor.config.json:
@@ -479,11 +553,186 @@ const LocationGate = {
   }
 }
 
+// --- @capacitor/camera override (auto) --------------------------------------
+// Intercepts Camera.getPhoto at the Capacitor bridge level and routes it to the
+// native secure camera. Fail-safe: any error falls back to the original call.
+function mapPhotoOptions (options = {}) {
+  const out = {
+    quality: options.quality != null ? options.quality : 90,
+    direction: options.direction === 'front' ? 'front' : 'rear',
+    resultType: options.resultType === 'dataUrl' ? 'dataUrl' : 'base64',
+    requireGPSVerification: false
+  }
+  return out
+}
+
+function toCapacitorPhoto (res) {
+  const raw = res || {}
+  const base64 = raw.base64 || (raw.dataUrl ? String(raw.dataUrl).split(',')[1] : '')
+  return {
+    base64String: base64 || undefined,
+    dataUrl: raw.dataUrl || (base64 ? 'data:image/jpeg;base64,' + base64 : undefined),
+    path: raw.path,
+    webPath: raw.uri,
+    format: 'jpeg',
+    saved: false,
+    exif: raw.exif
+  }
+}
+
+const CameraOverride = {
+  installed: false,
+
+  install () {
+    if (this.installed || !isNative() || typeof Capacitor === 'undefined') return
+    const cap = Capacitor
+    if (typeof cap.nativePromise !== 'function') return
+    const before = cap.nativePromise
+    const originalNativePromise = before.bind(cap)
+    const self = this
+    try {
+      cap.nativePromise = function (pluginName, methodName, options) {
+        if (
+          pluginName === 'Camera' &&
+          methodName === 'getPhoto' &&
+          cameraConfig.cameraOverride !== false &&
+          PluginSecure && typeof PluginSecure.captureVerifiedPhoto === 'function'
+        ) {
+          return PluginSecure
+            .captureVerifiedPhoto(mapPhotoOptions(options))
+            .then(toCapacitorPhoto)
+        }
+        return originalNativePromise(pluginName, methodName, options)
+      }
+    } catch (e) { /* nativePromise is read-only, leave it alone */ }
+    this.installed = cap.nativePromise !== before
+  }
+}
+
+// --- getUserMedia polyfill (auto) -------------------------------------------
+// Bridges navigator.mediaDevices.getUserMedia to a native camera stream exposed
+// as a canvas.captureStream(). Live preview, barcode scanning and face-api keep
+// working unchanged. Audio constraints are ignored (video only) and any failure
+// falls back to the original browser implementation.
+const CameraStream = {
+  installed: false,
+  original: null,
+  stream: null,
+  canvas: null,
+  ctx: null,
+  canvasStream: null,
+  frameListener: null,
+  facingMode: 'environment',
+
+  install () {
+    if (this.installed || !isNative()) return
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices) return
+    if (typeof navigator.mediaDevices.getUserMedia !== 'function') return
+    if (!hasMethod('startCameraStream')) return
+    this.original = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices)
+    this.installed = true
+    const self = this
+    navigator.mediaDevices.getUserMedia = function (constraints) {
+      return self.handle(constraints)
+    }
+  },
+
+  async handle (constraints) {
+    const video = constraints && constraints.video
+    if (!video || cameraConfig.cameraStream === false) {
+      return this.original(constraints)
+    }
+    try {
+      return await this.startNativeStream(constraints)
+    } catch (e) {
+      return this.original(constraints)
+    }
+  },
+
+  async startNativeStream (constraints) {
+    if (this.stream) return this.stream
+    const video = constraints.video && typeof constraints.video === 'object' ? constraints.video : {}
+    this.facingMode = video.facingMode === 'user' ? 'user' : 'environment'
+    const width = (video.width && (video.width.ideal || video.width)) || 640
+    const height = (video.height && (video.height.ideal || video.height)) || 480
+    const fps = video.frameRate && (video.frameRate.ideal || video.frameRate) || 15
+
+    this.canvas = document.createElement('canvas')
+    this.canvas.width = width
+    this.canvas.height = height
+    this.ctx = this.canvas.getContext('2d')
+    this.ctx.fillStyle = '#000'
+    this.ctx.fillRect(0, 0, width, height)
+
+    const self = this
+    this.frameListener = await PluginSecure.addListener('cameraFrame', (data) => { self.onFrame(data) })
+    await PluginSecure.startCameraStream({ facingMode: this.facingMode, width, height, fps })
+
+    this.canvasStream = this.canvas.captureStream(fps)
+    this.stream = new MediaStream()
+    const track = this.canvasStream.getVideoTracks()[0]
+
+    track.getCapabilities = function () {
+      return { torch: !!self.torchSupported, facingMode: [self.facingMode] }
+    }
+    track.applyConstraints = function (next) {
+      const adv = next && next.advanced ? next.advanced[0] : next
+      if (adv && typeof adv.torch === 'boolean' && hasMethod('setCameraTorch')) {
+        PluginSecure.setCameraTorch({ enabled: adv.torch })
+      }
+      if (adv && adv.facingMode) {
+        self.facingMode = adv.facingMode
+        PluginSecure.startCameraStream({ facingMode: adv.facingMode, width: self.canvas.width, height: self.canvas.height, fps })
+      }
+      return Promise.resolve()
+    }
+    const originalStop = track.stop.bind(track)
+    track.stop = function () {
+      originalStop()
+      self.dispose()
+    }
+
+    this.stream.addTrack(track)
+    return this.stream
+  },
+
+  onFrame (data) {
+    if (!this.ctx || !data || !data.base64) return
+    const self = this
+    const img = new Image()
+    img.onload = function () {
+      try { self.ctx.drawImage(img, 0, 0, self.canvas.width, self.canvas.height) } catch (e) { /* frame dropped */ }
+    }
+    img.src = 'data:image/jpeg;base64,' + data.base64
+  },
+
+  dispose () {
+    try {
+      if (this.frameListener && typeof this.frameListener.remove === 'function') this.frameListener.remove()
+    } catch (e) { /* noop */ }
+    this.frameListener = null
+    if (hasMethod('stopCameraStream')) {
+      try { PluginSecure.stopCameraStream() } catch (e) { /* noop */ }
+    }
+    try {
+      if (this.canvasStream) this.canvasStream.getTracks().forEach((t) => t.stop())
+    } catch (e) { /* noop */ }
+    this.canvasStream = null
+    this.stream = null
+    this.canvas = null
+    this.ctx = null
+  }
+}
+
 export default ({ Vue }) => {
   if (Vue && Vue.prototype) {
     Vue.prototype.$pluginsecure = PluginSecureService
   }
   LocationGate.init()
+  refreshCameraConfig().then(() => {
+    CameraOverride.install()
+    CameraStream.install()
+  })
 }
 `
 }
@@ -569,6 +818,7 @@ module.exports = {
   ensureCapacitor3,
   syncNative,
   installBootFile,
+  bootFileSource,
   log,
   warn
 }

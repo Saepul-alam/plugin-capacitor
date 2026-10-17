@@ -28,7 +28,19 @@ public class PluginSecurePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "isLocationRequired", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setLocationRequired", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "openAppSettings", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "openLocationSettings", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "openLocationSettings", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getCameraConfig", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setCameraFeature", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "captureBurst", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "startCameraStream", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "stopCameraStream", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setCameraTorch", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "startVideoRecording", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "stopVideoRecording", returnType: CAPPluginReturnPromise)
+    ]
+
+    private static let CAMERA_FEATURES = [
+        "cameraOverride", "cameraStream", "captureBurst", "videoRecorder", "watermark"
     ]
 
     // Capacitor 2 and 3 discover plugins by scanning the ObjC runtime for these
@@ -55,6 +67,7 @@ public class PluginSecurePlugin: CAPPlugin, CAPBridgedPlugin {
     private var monitoringTimer: Timer?
     private var cameraCall: CAPPluginCall?
     private var barcodeCall: CAPPluginCall?
+    private let cameraStream = CameraStreamController()
 
     private var locationManager: CLLocationManager?
     private var pendingLocationCall: CAPPluginCall?
@@ -200,8 +213,10 @@ public class PluginSecurePlugin: CAPPlugin, CAPBridgedPlugin {
         if !requireLocationOrRequest(call, action: { [weak self] in self?.captureVerifiedPhoto(call) }) { return }
         self.cameraCall = call
         DispatchQueue.main.async {
+            var options = call.options as? [String: Any] ?? [:]
+            if options["watermark"] == nil { options["watermark"] = self.cameraFlag("watermark") }
             let vc = CameraVerifiedViewController()
-            vc.options = VerifiedPhotoOptions(from: call.options as? [String: Any] ?? [:])
+            vc.options = VerifiedPhotoOptions(from: options)
             vc.delegate = self
             self.bridge?.viewController?.present(vc, animated: true)
         }
@@ -257,6 +272,106 @@ public class PluginSecurePlugin: CAPPlugin, CAPBridgedPlugin {
         monitoringTimer?.invalidate()
         monitoringTimer = nil
         call.resolve()
+    }
+
+    // MARK: - Camera feature flags
+
+    private func cameraFlag(_ name: String) -> Bool {
+        let key = "al_camera_\(name)"
+        if UserDefaults.standard.object(forKey: key) != nil {
+            return UserDefaults.standard.bool(forKey: key)
+        }
+        if let value = getConfig()[name] as? Bool {
+            return value
+        }
+        return true
+    }
+
+    private func cameraConfigDict() -> [String: Any] {
+        var dict: [String: Any] = [:]
+        for feature in PluginSecurePlugin.CAMERA_FEATURES {
+            dict[feature] = cameraFlag(feature)
+        }
+        return dict
+    }
+
+    @objc func getCameraConfig(_ call: CAPPluginCall) {
+        call.resolve(cameraConfigDict())
+    }
+
+    @objc func setCameraFeature(_ call: CAPPluginCall) {
+        guard let feature = call.getString("feature"),
+              PluginSecurePlugin.CAMERA_FEATURES.contains(feature) else {
+            call.reject("Fitur kamera tidak dikenal")
+            return
+        }
+        let enabled = call.getBool("enabled", true)
+        UserDefaults.standard.set(enabled, forKey: "al_camera_\(feature)")
+        call.resolve(cameraConfigDict())
+    }
+
+    @objc func captureBurst(_ call: CAPPluginCall) {
+        if !cameraFlag("captureBurst") {
+            call.reject("Fitur captureBurst dimatikan")
+            return
+        }
+        if !requireLocationOrRequest(call, action: { [weak self] in self?.captureBurst(call) }) { return }
+
+        var options = call.options as? [String: Any] ?? [:]
+        if options["direction"] == nil { options["direction"] = "front" }
+        options["resultType"] = "base64"
+        if options["burstCount"] == nil { options["burstCount"] = call.getInt("count", 5) ?? 5 }
+        if options["burstIntervalMs"] == nil { options["burstIntervalMs"] = call.getInt("intervalMs", 250) ?? 250 }
+        if options["watermark"] == nil { options["watermark"] = cameraFlag("watermark") }
+
+        self.cameraCall = call
+        DispatchQueue.main.async {
+            let vc = CameraVerifiedViewController()
+            vc.options = VerifiedPhotoOptions(from: options)
+            vc.delegate = self
+            self.bridge?.viewController?.present(vc, animated: true)
+        }
+    }
+
+    @objc func startCameraStream(_ call: CAPPluginCall) {
+        if !cameraFlag("cameraStream") {
+            call.reject("Fitur cameraStream dimatikan")
+            return
+        }
+        let facing = call.getString("facingMode") ?? "environment"
+        let fps = call.getInt("fps", 15) ?? 15
+        let quality = call.getInt("quality", 70) ?? 70
+        let torch = call.getBool("torch", false)
+
+        DispatchQueue.main.async {
+            let started = self.cameraStream.start(facing: facing, fps: fps, quality: quality, torch: torch) { data in
+                self.notifyListeners("cameraFrame", data: data)
+            }
+            if started {
+                call.resolve(["started": true])
+            } else {
+                call.reject("Camera stream tidak dapat dimulai")
+            }
+        }
+    }
+
+    @objc func stopCameraStream(_ call: CAPPluginCall) {
+        cameraStream.stop()
+        call.resolve()
+    }
+
+    @objc func setCameraTorch(_ call: CAPPluginCall) {
+        let enabled = call.getBool("enabled", false)
+        cameraStream.setTorch(enabled)
+        call.resolve()
+    }
+
+    @objc func startVideoRecording(_ call: CAPPluginCall) {
+        call.reject("Native video recording belum tersedia di iOS")
+    }
+
+    @objc func stopVideoRecording(_ call: CAPPluginCall) {
+        call.reject("Native video recording belum tersedia di iOS")
     }
 }
 

@@ -82,6 +82,66 @@ export interface BarcodeScanResult {
   format: string;
 }
 
+export interface CameraConfig {
+  cameraOverride: boolean;
+  cameraStream: boolean;
+  captureBurst: boolean;
+  videoRecorder: boolean;
+  watermark: boolean;
+}
+
+export type CameraFeature =
+  | 'cameraOverride'
+  | 'cameraStream'
+  | 'captureBurst'
+  | 'videoRecorder'
+  | 'watermark';
+
+export interface BurstFrame {
+  base64: string;
+  timestamp: number;
+  exif: VerifiedPhotoResult['exif'];
+}
+
+export interface CaptureBurstOptions {
+  count?: number;
+  intervalMs?: number;
+  poses?: string[];
+  direction?: CameraDirection;
+  quality?: number;
+  resultType?: CameraResultType;
+}
+
+export interface CaptureBurstResult {
+  frames: BurstFrame[];
+  exif: VerifiedPhotoResult['exif'];
+}
+
+export interface CameraStreamOptions {
+  facingMode?: 'user' | 'environment';
+  width?: number;
+  height?: number;
+  fps?: number;
+  quality?: number;
+  torch?: boolean;
+}
+
+export interface VideoRecordingOptions {
+  facingMode?: 'user' | 'environment';
+  quality?: 'low' | 'medium' | 'high';
+  maxDurationMs?: number;
+  watermark?: boolean;
+}
+
+export interface VideoRecordingResult {
+  uri: string;
+  path?: string;
+  base64?: string;
+  dataUrl?: string;
+  durationMs: number;
+  hasAudio: boolean;
+}
+
 export interface NativeErrorOptions {
   title?: string;
   message?: string;
@@ -136,12 +196,21 @@ export interface PluginSecurePlugin {
   setLocationRequired(options: { enabled: boolean }): Promise<LocationRequiredResult>;
   openAppSettings(): Promise<void>;
   openLocationSettings(): Promise<void>;
+  getCameraConfig(): Promise<CameraConfig>;
+  setCameraFeature(options: { feature: CameraFeature; enabled: boolean }): Promise<CameraConfig>;
+  captureBurst(options?: CaptureBurstOptions): Promise<CaptureBurstResult>;
+  startCameraStream(options?: CameraStreamOptions): Promise<{ started: boolean }>;
+  stopCameraStream(): Promise<void>;
+  setCameraTorch(options: { enabled: boolean }): Promise<void>;
+  startVideoRecording(options?: VideoRecordingOptions): Promise<{ started: boolean }>;
+  stopVideoRecording(): Promise<VideoRecordingResult>;
   // Capacitor 3's WebPlugin returns a promise that is also a handle, and
   // removeAllListeners() returns a Promise (core/web-plugin.d.ts).
   addListener(event: 'gpsMockDetected', callback: (data: GPSVerificationResult) => void): Promise<PluginListenerHandle> & PluginListenerHandle;
   addListener(event: 'deviceIntegrityChanged', callback: (data: DeviceIntegrityResult) => void): Promise<PluginListenerHandle> & PluginListenerHandle;
   addListener(event: 'nativeErrorRetry', callback: () => void): Promise<PluginListenerHandle> & PluginListenerHandle;
   addListener(event: 'locationPermissionChanged', callback: (data: { granted: boolean }) => void): Promise<PluginListenerHandle> & PluginListenerHandle;
+  addListener(event: 'cameraFrame', callback: (data: { base64: string; timestamp: number; facingMode?: string }) => void): Promise<PluginListenerHandle> & PluginListenerHandle;
   removeAllListeners(): Promise<void>;
 }
 

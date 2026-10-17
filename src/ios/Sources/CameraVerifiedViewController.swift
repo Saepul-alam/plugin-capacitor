@@ -20,6 +20,8 @@ struct VerifiedPhotoOptions {
     let watermark: Bool
     let resultType: String
     let allowFallback: Bool
+    let burstCount: Int
+    let burstIntervalMs: Int
 
     init(from dict: [String: Any]) {
         self.quality = dict["quality"] as? Int ?? 90
@@ -31,6 +33,8 @@ struct VerifiedPhotoOptions {
         self.watermark = dict["watermark"] as? Bool ?? false
         self.resultType = dict["resultType"] as? String ?? "uri"
         self.allowFallback = dict["allowFallback"] as? Bool ?? false
+        self.burstCount = min(max(dict["burstCount"] as? Int ?? 1, 1), 20)
+        self.burstIntervalMs = min(max(dict["burstIntervalMs"] as? Int ?? 250, 0), 5000)
     }
 }
 
@@ -40,6 +44,16 @@ struct VerifiedPhotoResult {
     let dataUrl: String?
     let exif: [String: Any]
     let path: String?
+    let frames: [[String: Any]]?
+
+    init(uri: String, base64: String?, dataUrl: String?, exif: [String: Any], path: String?, frames: [[String: Any]]? = nil) {
+        self.uri = uri
+        self.base64 = base64
+        self.dataUrl = dataUrl
+        self.exif = exif
+        self.path = path
+        self.frames = frames
+    }
 
     func toJSObject() -> [String: Any] {
         var obj: [String: Any] = [:]
@@ -48,6 +62,7 @@ struct VerifiedPhotoResult {
         if let dataUrl = dataUrl { obj["dataUrl"] = dataUrl }
         obj["exif"] = exif
         if let path = path { obj["path"] = path }
+        if let frames = frames { obj["frames"] = frames }
         return obj
     }
 }
@@ -63,6 +78,7 @@ class CameraVerifiedViewController: UIViewController {
     private var locationTimestamp: Date?
     private var previewLayer: AVCaptureVideoPreviewLayer?
     private var isCapturing = false
+    private var burstFrames: [[String: Any]] = []
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -273,9 +289,49 @@ extension CameraVerifiedViewController: AVCapturePhotoCaptureDelegate {
         }
 
         let age = Date().timeIntervalSince(locationTimestamp ?? Date()) * 1000
+
+        if options.burstCount > 1 {
+            let frameExif = exifDictionary(location: location, gpsAgeMs: Int(age))
+            burstFrames.append([
+                "base64": data.base64EncodedString(),
+                "timestamp": Int(Date().timeIntervalSince1970 * 1000),
+                "exif": frameExif
+            ])
+            if burstFrames.count >= options.burstCount {
+                let result = VerifiedPhotoResult(
+                    uri: "",
+                    base64: nil,
+                    dataUrl: nil,
+                    exif: frameExif,
+                    path: nil,
+                    frames: burstFrames
+                )
+                delegate?.didCapturePhoto(result: result)
+                dismiss(animated: true)
+            } else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + Double(options.burstIntervalMs) / 1000) { [weak self] in
+                    self?.isCapturing = false
+                    self?.capturePhoto()
+                }
+            }
+            return
+        }
+
         let result = writeEXIFAndSave(data: data, image: image, location: location, gpsAgeMs: Int(age))
         delegate?.didCapturePhoto(result: result)
         dismiss(animated: true)
+    }
+
+    private func exifDictionary(location: CLLocation, gpsAgeMs: Int) -> [String: Any] {
+        return [
+            "latitude": location.coordinate.latitude,
+            "longitude": location.coordinate.longitude,
+            "altitude": location.altitude,
+            "accuracy": location.horizontalAccuracy,
+            "timestamp": Int(location.timestamp.timeIntervalSince1970 * 1000),
+            "isVerified": true,
+            "verificationDetails": String(format: "VERIFIED|ACCURACY:%.1f|AGE_MS:%d", location.horizontalAccuracy, gpsAgeMs)
+        ]
     }
 
     private func writeEXIFAndSave(data: Data, image: UIImage, location: CLLocation, gpsAgeMs: Int) -> VerifiedPhotoResult {

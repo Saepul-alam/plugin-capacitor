@@ -12,7 +12,9 @@ data class VerifiedPhotoOptions(
     val embedEXIF: Boolean = true,
     val watermark: Boolean = false,
     val resultType: String = "uri",
-    val allowFallback: Boolean = false
+    val allowFallback: Boolean = false,
+    val burstCount: Int = 1,
+    val burstIntervalMs: Long = 250L
 ) {
     companion object {
         fun fromJson(json: String): VerifiedPhotoOptions {
@@ -26,7 +28,9 @@ data class VerifiedPhotoOptions(
                 embedEXIF = obj.optBoolean("embedEXIF", true),
                 watermark = obj.optBoolean("watermark", false),
                 resultType = obj.optString("resultType", "uri"),
-                allowFallback = obj.optBoolean("allowFallback", false)
+                allowFallback = obj.optBoolean("allowFallback", false),
+                burstCount = obj.optInt("burstCount", 1),
+                burstIntervalMs = obj.optLong("burstIntervalMs", 250L)
             )
         }
     }

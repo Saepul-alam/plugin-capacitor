@@ -32,6 +32,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 
 @CapacitorPlugin(
     name = "PluginSecure",
@@ -51,6 +52,16 @@ class PluginSecurePlugin : Plugin() {
         private const val LOCATION_PREFS = "plugin_secure_location_prefs"
         private const val KEY_REQUIRE_LOCATION = "require_location"
 
+        // Camera feature flags. All default to true (auto-on) and can be turned
+        // off either from capacitor.config.json (plugins.PluginSecure.<flag>) or
+        // at runtime via setCameraFeature({ feature, enabled }).
+        private const val CAMERA_PREFS = "plugin_secure_camera_prefs"
+        private const val KEY_CAMERA_OVERRIDE = "camera_override"
+        private const val KEY_CAMERA_STREAM = "camera_stream"
+        private const val KEY_CAPTURE_BURST = "capture_burst"
+        private const val KEY_VIDEO_RECORDER = "video_recorder"
+        private const val KEY_WATERMARK = "watermark"
+
         // Registered once per process; detects when the user explicitly closes the
         // app so the preserved state is cleared and the next launch starts fresh.
         @Volatile
@@ -66,6 +77,13 @@ class PluginSecurePlugin : Plugin() {
     private lateinit var locationPrefs: SharedPreferences
     private var requireLocation: Boolean = true
 
+    private lateinit var cameraPrefs: SharedPreferences
+    private var cameraOverride: Boolean = true
+    private var cameraStream: Boolean = true
+    private var captureBurst: Boolean = true
+    private var videoRecorder: Boolean = true
+    private var watermark: Boolean = true
+
     override fun load() {
         super.load()
 
@@ -77,6 +95,14 @@ class PluginSecurePlugin : Plugin() {
             true
         }
         requireLocation = locationPrefs.getBoolean(KEY_REQUIRE_LOCATION, configDefault)
+
+        // Camera flags (default true). Resolution: stored runtime value -> config -> true.
+        cameraPrefs = context.getSharedPreferences(CAMERA_PREFS, Context.MODE_PRIVATE)
+        cameraOverride = cameraPrefs.getBoolean(KEY_CAMERA_OVERRIDE, boolConfig("cameraOverride", true))
+        cameraStream = cameraPrefs.getBoolean(KEY_CAMERA_STREAM, boolConfig("cameraStream", true))
+        captureBurst = cameraPrefs.getBoolean(KEY_CAPTURE_BURST, boolConfig("captureBurst", true))
+        videoRecorder = cameraPrefs.getBoolean(KEY_VIDEO_RECORDER, boolConfig("videoRecorder", true))
+        watermark = cameraPrefs.getBoolean(KEY_WATERMARK, boolConfig("watermark", true))
 
         // State preservation (opt-in, default false): when enabled, the last route is
         // restored on cold start (best-effort, close-aware). When disabled every cold
@@ -219,10 +245,45 @@ class PluginSecurePlugin : Plugin() {
     @PluginMethod
     fun captureVerifiedPhoto(call: PluginCall) {
         if (!ensureLocationPermission(call)) return
+        // Merge config-driven defaults so the auto-on behaviour works even when
+        // the caller (e.g. a plain Camera.getPhoto shim) passes no options.
+        val merged = try {
+            JSONObject(call.data.toString()).apply {
+                if (!has("watermark")) put("watermark", watermark)
+            }
+        } catch (_: Exception) {
+            call.data
+        }
         val intent = Intent(activity, CameraVerifiedActivity::class.java).apply {
-            putExtra("options", call.data.toString())
+            putExtra("options", merged.toString())
         }
         // Use skeleton wrapper
+        launchWithSkeleton(intent, "cameraResult", call)
+    }
+
+    @PluginMethod
+    fun captureBurst(call: PluginCall) {
+        if (!captureBurst) {
+            call.reject(nativeError("Fitur captureBurst dimatikan"))
+            return
+        }
+        if (!ensureLocationPermission(call)) return
+        val count = (call.getInt("count") ?: 5).coerceIn(1, 20)
+        val intervalMs = call.getInt("intervalMs") ?: 250
+        val merged = try {
+            JSONObject(call.data.toString())
+        } catch (_: Exception) {
+            JSONObject()
+        }
+        merged.put("burstCount", count)
+        merged.put("burstIntervalMs", intervalMs)
+        merged.put("resultType", "base64")
+        if (!merged.has("direction")) merged.put("direction", call.getString("direction") ?: "front")
+        if (!merged.has("watermark")) merged.put("watermark", watermark)
+
+        val intent = Intent(activity, CameraVerifiedActivity::class.java).apply {
+            putExtra("options", merged.toString())
+        }
         launchWithSkeleton(intent, "cameraResult", call)
     }
 
@@ -406,6 +467,116 @@ class PluginSecurePlugin : Plugin() {
         call.resolve(JSObject().apply { put("enabled", enabled) })
     }
 
+    // --- Camera feature flags ----------------------------------------------
+
+    private fun boolConfig(key: String, default: Boolean): Boolean = try {
+        getConfig().getBoolean(key, default)
+    } catch (_: Exception) {
+        default
+    }
+
+    private fun cameraConfigJson(): JSObject = JSObject().apply {
+        put("cameraOverride", cameraOverride)
+        put("cameraStream", cameraStream)
+        put("captureBurst", captureBurst)
+        put("videoRecorder", videoRecorder)
+        put("watermark", watermark)
+    }
+
+    @PluginMethod
+    fun getCameraConfig(call: PluginCall) {
+        call.resolve(cameraConfigJson())
+    }
+
+    @PluginMethod
+    fun setCameraFeature(call: PluginCall) {
+        val feature = call.getString("feature")
+        if (feature == null) {
+            call.reject(nativeError("Parameter 'feature' wajib diisi"))
+            return
+        }
+        val enabled = call.getBoolean("enabled", true) ?: true
+        when (feature) {
+            "cameraOverride" -> {
+                cameraOverride = enabled
+                cameraPrefs.edit().putBoolean(KEY_CAMERA_OVERRIDE, enabled).apply()
+            }
+            "cameraStream" -> {
+                cameraStream = enabled
+                cameraPrefs.edit().putBoolean(KEY_CAMERA_STREAM, enabled).apply()
+            }
+            "captureBurst" -> {
+                captureBurst = enabled
+                cameraPrefs.edit().putBoolean(KEY_CAPTURE_BURST, enabled).apply()
+            }
+            "videoRecorder" -> {
+                videoRecorder = enabled
+                cameraPrefs.edit().putBoolean(KEY_VIDEO_RECORDER, enabled).apply()
+            }
+            "watermark" -> {
+                watermark = enabled
+                cameraPrefs.edit().putBoolean(KEY_WATERMARK, enabled).apply()
+            }
+            else -> {
+                call.reject(nativeError("Fitur kamera tidak dikenal: $feature"))
+                return
+            }
+        }
+        call.resolve(cameraConfigJson())
+    }
+
+    @PluginMethod
+    fun startCameraStream(call: PluginCall) {
+        if (!cameraStream) {
+            call.reject(nativeError("Fitur cameraStream dimatikan"))
+            return
+        }
+        val facingMode = call.getString("facingMode") ?: "environment"
+        val width = call.getInt("width") ?: 640
+        val height = call.getInt("height") ?: 480
+        val fps = call.getInt("fps") ?: 15
+        val quality = call.getInt("quality") ?: 70
+        val torch = call.getBoolean("torch") ?: false
+
+        CameraStreamManager.start(context, facingMode, width, height, fps, quality, torch) { data ->
+            notifyListeners("cameraFrame", data)
+        }
+        call.resolve(JSObject().apply { put("started", true) })
+    }
+
+    @PluginMethod
+    fun stopCameraStream(call: PluginCall) {
+        CameraStreamManager.stop()
+        call.resolve()
+    }
+
+    @PluginMethod
+    fun setCameraTorch(call: PluginCall) {
+        val enabled = call.getBoolean("enabled", false) ?: false
+        CameraStreamManager.setTorch(enabled)
+        call.resolve()
+    }
+
+    @PluginMethod
+    fun startVideoRecording(call: PluginCall) {
+        if (!videoRecorder) {
+            call.reject(nativeError("Fitur videoRecorder dimatikan"))
+            return
+        }
+        val intent = Intent(activity, VideoRecordActivity::class.java).apply {
+            putExtra("facingMode", call.getString("facingMode") ?: "environment")
+            putExtra("quality", call.getString("quality") ?: "high")
+            putExtra("maxDurationMs", call.getLong("maxDurationMs") ?: 0L)
+        }
+        launchWithSkeleton(intent, "cameraResult", call)
+    }
+
+    @PluginMethod
+    fun stopVideoRecording(call: PluginCall) {
+        VideoRecordActivity.requestStop()
+        call.resolve()
+    }
+
     @PluginMethod
     fun openAppSettings(call: PluginCall) {
         try {
@@ -446,6 +617,7 @@ class PluginSecurePlugin : Plugin() {
         monitoringJob?.cancel()
         monitoringJob = null
         gpsHelper.unregisterGnssListener()
+        CameraStreamManager.stop()
         super.handleOnDestroy()
     }
 

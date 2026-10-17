@@ -54,6 +54,9 @@ class CameraVerifiedActivity : AppCompatActivity() {
     private var currentBestLocation: android.location.Location? = null
     private var locationRequestTime = 0L
     private var pendingPhotoFile: File? = null
+    private var burstCount = 1
+    private var burstIntervalMs = 250L
+    private val burstFrames = mutableListOf<JSObject>()
 
     private val fusedLocationClient: FusedLocationProviderClient by lazy {
         LocationServices.getFusedLocationProviderClient(this)
@@ -78,6 +81,8 @@ class CameraVerifiedActivity : AppCompatActivity() {
         if (options?.direction == "front") {
             lensFacing = CameraSelector.LENS_FACING_FRONT
         }
+        burstCount = (options?.burstCount ?: 1).coerceIn(1, 20)
+        burstIntervalMs = (options?.burstIntervalMs ?: 250L).coerceIn(0L, 5000L)
 
         setupClickListeners()
         requestLocation()
@@ -234,7 +239,11 @@ class CameraVerifiedActivity : AppCompatActivity() {
                         applyWatermark(savedFile)
                     }
 
-                    returnResult(savedFile, age)
+                    if (burstCount > 1) {
+                        collectBurstFrame(savedFile, age)
+                    } else {
+                        returnResult(savedFile, age)
+                    }
                 }
 
                 override fun onError(exception: ImageCaptureException) {
@@ -246,7 +255,101 @@ class CameraVerifiedActivity : AppCompatActivity() {
     }
 
     private fun applyWatermark(photoFile: File) {
-        // TODO: Implement bitmap watermark with GPS coords + timestamp
+        try {
+            val decoded = android.graphics.BitmapFactory.decodeFile(photoFile.absolutePath) ?: return
+            val bitmap = decoded.copy(android.graphics.Bitmap.Config.ARGB_8888, true) ?: decoded
+            val canvas = android.graphics.Canvas(bitmap)
+            val loc = currentBestLocation
+            val stamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
+
+            val lines = mutableListOf("Plugin Secure Verified")
+            if (loc != null) {
+                lines.add(String.format(Locale.US, "%.6f, %.6f", loc.latitude, loc.longitude))
+                lines.add(String.format(Locale.US, "\u00b1%.1fm  %s", loc.accuracy, stamp))
+            } else {
+                lines.add(stamp)
+            }
+
+            val textSize = (bitmap.width / 34f).coerceAtLeast(14f)
+            val paint = android.graphics.Paint().apply {
+                color = android.graphics.Color.WHITE
+                this.textSize = textSize
+                isAntiAlias = true
+                typeface = android.graphics.Typeface.DEFAULT_BOLD
+                setShadowLayer(textSize / 4f, 0f, 0f, android.graphics.Color.BLACK)
+            }
+            val background = android.graphics.Paint().apply {
+                color = android.graphics.Color.argb(150, 0, 0, 0)
+            }
+
+            val padding = textSize * 0.6f
+            val lineHeight = textSize * 1.35f
+            val blockHeight = lineHeight * lines.size + padding * 2
+            val blockWidth = (lines.maxOfOrNull { paint.measureText(it) } ?: 0f) + padding * 2
+            val left = padding
+            val bottom = bitmap.height - padding
+            val top = bottom - blockHeight
+
+            canvas.drawRect(left, top, left + blockWidth, bottom, background)
+            lines.forEachIndexed { index, line ->
+                val baseline = top + padding + lineHeight * index + textSize
+                canvas.drawText(line, left + padding, baseline, paint)
+            }
+
+            java.io.FileOutputStream(photoFile).use { out ->
+                bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, options?.quality ?: 90, out)
+            }
+            bitmap.recycle()
+            if (bitmap !== decoded) decoded.recycle()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to apply watermark", e)
+        }
+    }
+
+    private fun exifJson(gpsAgeMs: Long): JSObject = JSObject().apply {
+        if (currentBestLocation != null) {
+            put("latitude", currentBestLocation!!.latitude)
+            put("longitude", currentBestLocation!!.longitude)
+            put("altitude", currentBestLocation!!.altitude)
+            put("accuracy", currentBestLocation!!.accuracy)
+            put("timestamp", currentBestLocation!!.time)
+            put("isVerified", true)
+            put("verificationDetails", String.format(
+                Locale.US, "VERIFIED|ACCURACY:%.1f|AGE_MS:%d",
+                currentBestLocation!!.accuracy, gpsAgeMs
+            ))
+        } else {
+            put("isVerified", false)
+            put("verificationDetails", "NO_GPS_FIX")
+        }
+    }
+
+    private fun collectBurstFrame(photoFile: File, gpsAgeMs: Long) {
+        cameraScope.launch {
+            val base64 = android.util.Base64.encodeToString(photoFile.readBytes(), android.util.Base64.DEFAULT)
+            runOnUiThread {
+                burstFrames.add(JSObject().apply {
+                    put("base64", base64)
+                    put("timestamp", System.currentTimeMillis())
+                    put("exif", exifJson(gpsAgeMs))
+                })
+                if (burstFrames.size >= burstCount) {
+                    returnBurstResult(gpsAgeMs)
+                } else {
+                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                        capturePhoto()
+                    }, burstIntervalMs)
+                }
+            }
+        }
+    }
+
+    private fun returnBurstResult(gpsAgeMs: Long) {
+        val result = JSObject()
+        result.put("frames", com.getcapacitor.JSArray().apply { burstFrames.forEach { put(it) } })
+        result.put("exif", exifJson(gpsAgeMs))
+        setResult(Activity.RESULT_OK, Intent().putExtra("result", result.toString()))
+        finish()
     }
 
     private fun returnResult(photoFile: File, gpsAgeMs: Long) {
@@ -259,25 +362,7 @@ class CameraVerifiedActivity : AppCompatActivity() {
 
         result.put("uri", uri)
         result.put("path", photoFile.absolutePath)
-
-        val exif = JSObject().apply {
-            if (currentBestLocation != null) {
-                put("latitude", currentBestLocation!!.latitude)
-                put("longitude", currentBestLocation!!.longitude)
-                put("altitude", currentBestLocation!!.altitude)
-                put("accuracy", currentBestLocation!!.accuracy)
-                put("timestamp", currentBestLocation!!.time)
-                put("isVerified", true)
-                put("verificationDetails", String.format(
-                    Locale.US, "VERIFIED|ACCURACY:%.1f|AGE_MS:%d",
-                    currentBestLocation!!.accuracy, gpsAgeMs
-                ))
-            } else {
-                put("isVerified", false)
-                put("verificationDetails", "NO_GPS_FIX")
-            }
-        }
-        result.put("exif", exif)
+        result.put("exif", exifJson(gpsAgeMs))
 
         if (options?.resultType == "base64" || options?.resultType == "dataUrl") {
             cameraScope.launch {
