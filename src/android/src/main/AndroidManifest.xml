@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.al.pluginsecure">
+
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+
+    <uses-feature android:name="android.hardware.camera" android:required="true" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
+    <uses-feature android:name="android.hardware.location.gps" android:required="true" />
+    <queries>
+        <package android:name="com.lexa.fakegps" />
+        <package android:name="com.incorporateapps.fakegps" />
+        <package android:name="com.gsmartstudio.fakegps" />
+        <package android:name="ru.gavrikov.fakegps" />
+        <package android:name="com.androidoverload.fakegps" />
+        <package android:name="com.fakegps.mocklocation" />
+        <package android:name="com.techmini.fakegps" />
+        <package android:name="org.abolfazl.fakegps" />
+        <package android:name="com.fakegps.location" />
+        <package android:name="fake.gps.location" />
+        <package android:name="com.fakegps.free" />
+        <package android:name="com.gps.fake" />
+        <package android:name="org.abolfazl.fakegpsfree" />
+        <package android:name="com.fakegps.mock" />
+        <package android:name="com.fakegps.pro" />
+        <package android:name="com.mock.gps" />
+        <package android:name="com.theappninjas.fakegpsjoystick" />
+        <package android:name="com.incorporateapps.fakegps_route" />
+        <package android:name="com.marlove.mocklocation" />
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
+
+    <application>
+        <activity
+            android:name=".CameraVerifiedActivity"
+            android:exported="false"
+            android:theme="@style/Theme.AppCompat.NoActionBar"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize" />
+
+        <activity
+            android:name=".VideoRecordActivity"
+            android:exported="false"
+            android:theme="@style/Theme.AppCompat.NoActionBar"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize" />
+
+        <activity
+            android:name=".SkeletonActivity"
+            android:exported="false"
+            android:theme="@style/Theme.AppCompat.Dialog"
+            android:configChanges="orientation|screenSize" />
+
+        <provider
+            android:name="com.al.pluginsecure.PluginSecureFileProvider"
+            android:authorities="${applicationId}.pluginsecure.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+        <service
+            android:name=".LocationTrackingService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
+    </application>
+</manifest>

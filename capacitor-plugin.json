@@ -1,0 +1,116 @@
+{
+  "name": "PluginSecure",
+  "version": "1.0.0",
+  "description": "Security plugin for Capacitor - Fake GPS detection & verified camera capture",
+  "platforms": ["android", "ios", "web"],
+  "methods": [
+    {
+      "name": "verifyGPS",
+      "returnType": "Promise<GPSVerificationResult>"
+    },
+    {
+      "name": "checkDeviceIntegrity",
+      "returnType": "Promise<DeviceIntegrityResult>"
+    },
+    {
+      "name": "captureVerifiedPhoto",
+      "options": "VerifiedPhotoOptions",
+      "returnType": "Promise<VerifiedPhotoResult>"
+    },
+    {
+      "name": "startGPSMonitoring",
+      "options": "{ intervalMs?: number }",
+      "returnType": "Promise<void>"
+    },
+    {
+      "name": "stopGPSMonitoring",
+      "returnType": "Promise<void>"
+    },
+    {
+      "name": "checkLocationPermission",
+      "returnType": "Promise<LocationPermissionResult>"
+    },
+    {
+      "name": "requestLocationPermission",
+      "returnType": "Promise<LocationPermissionResult>"
+    },
+    {
+      "name": "isLocationRequired",
+      "returnType": "Promise<LocationRequiredResult>"
+    },
+    {
+      "name": "setLocationRequired",
+      "options": "{ enabled: boolean }",
+      "returnType": "Promise<LocationRequiredResult>"
+    },
+    {
+      "name": "openAppSettings",
+      "returnType": "Promise<void>"
+    },
+    {
+      "name": "openLocationSettings",
+      "returnType": "Promise<void>"
+    },
+    {
+      "name": "getCameraConfig",
+      "returnType": "Promise<CameraConfig>"
+    },
+    {
+      "name": "setCameraFeature",
+      "options": "{ feature: CameraFeature; enabled: boolean }",
+      "returnType": "Promise<CameraConfig>"
+    },
+    {
+      "name": "captureBurst",
+      "options": "CaptureBurstOptions",
+      "returnType": "Promise<CaptureBurstResult>"
+    },
+    {
+      "name": "startCameraStream",
+      "options": "CameraStreamOptions",
+      "returnType": "Promise<{ started: boolean }>"
+    },
+    {
+      "name": "stopCameraStream",
+      "returnType": "Promise<void>"
+    },
+    {
+      "name": "setCameraTorch",
+      "options": "{ enabled: boolean }",
+      "returnType": "Promise<void>"
+    },
+    {
+      "name": "startVideoRecording",
+      "options": "VideoRecordingOptions",
+      "returnType": "Promise<{ started: boolean }>"
+    },
+    {
+      "name": "stopVideoRecording",
+      "returnType": "Promise<VideoRecordingResult>"
+    }
+  ],
+  "events": [
+    {
+      "name": "gpsMockDetected",
+      "data": "GPSVerificationResult"
+    },
+    {
+      "name": "deviceIntegrityChanged",
+      "data": "DeviceIntegrityResult"
+    },
+    {
+      "name": "locationPermissionChanged",
+      "data": "{ granted: boolean }"
+    },
+    {
+      "name": "cameraFrame",
+      "data": "{ base64: string; timestamp: number; facingMode?: string }"
+    }
+  ],
+  "ios": {
+    "src": "src/ios"
+  },
+  "android": {
+    "src": "src/android"
+  }
+}

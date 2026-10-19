@@ -1,0 +1,62 @@
+{
+  "name": "@al/pluginsecure",
+  "version": "1.0.0",
+  "description": "Security anti-spoofing, verified camera (capture/burst/video/stream) and native error UI for Capacitor apps",
+  "main": "dist/cjs/index.js",
+  "module": "dist/esm/index.js",
+  "types": "dist/esm/index.d.ts",
+  "files": [
+    "dist/",
+    "src/",
+    "scripts/",
+    "capacitor-plugin.json",
+    "AlPluginsecure.podspec",
+    "README.id.md"
+  ],
+  "scripts": {
+    "build": "rm -rf dist && npm run build:esm && npm run build:cjs",
+    "build:esm": "tsc -p tsconfig.json",
+    "build:cjs": "tsc -p tsconfig.json --module commonjs --outDir dist/cjs --declaration false --declarationMap false",
+    "watch": "tsc --watch",
+    "prepare": "npm run build",
+    "postinstall": "node scripts/auto-install.js"
+  },
+  "bin": {
+    "pluginsecure-setup": "scripts/setup.js"
+  },
+  "keywords": [
+    "capacitor",
+    "plugin",
+    "security",
+    "gps",
+    "camera",
+    "fake-gps",
+    "anti-spoofing"
+  ],
+  "author": "Saepul Alam <saepul.alam@example.com>",
+  "license": "MIT",
+  "peerDependencies": {
+    "@capacitor/core": ">=3.0.0 <4.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^4.5.0",
+    "@capacitor/core": "^3.9.0",
+    "@types/node": "^16.0.0"
+  },
+  "capacitor": {
+    "ios": {
+      "src": "src/ios"
+    },
+    "android": {
+      "src": "src/android"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Saepul-alam/plugin-capacitor.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Saepul-alam/plugin-capacitor/issues"
+  },
+  "homepage": "https://github.com/Saepul-alam/plugin-capacitor#readme"
+}

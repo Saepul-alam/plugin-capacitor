@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Alias to the built‑in AppCompat large progress bar style -->
+    <style name="Widget.AppCompat.ProgressBar.Large" parent="Widget.AppCompat.ProgressBar.Large"/>
+</resources>
+
