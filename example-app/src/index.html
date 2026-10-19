@@ -1,24 +1,272 @@
 <!doctype html>
-<html lang="en" dir="ltr" class="hydrated">
+<html lang="id">
   <head>
     <meta charset="UTF-8" />
-    <title>Example Capacitor App</title>
+    <title>Wahana GPS Plugin Demo & Gating</title>
     <meta
       name="viewport"
       content="viewport-fit=cover, width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no"
     />
-    <meta name="format-detection" content="telephone=no" />
+    <style>
+      :root {
+        --primary: #0066cc;
+        --primary-dark: #004c99;
+        --danger: #d32f2f;
+        --success: #2e7d32;
+        --warning: #ed6c02;
+        --bg: #f4f6f8;
+        --card-bg: #ffffff;
+        --text: #1a1a1a;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      }
+      body {
+        background-color: var(--bg);
+        color: var(--text);
+        padding: 16px;
+        padding-bottom: 40px;
+      }
+      header {
+        text-align: center;
+        margin-bottom: 20px;
+      }
+      h1 {
+        font-size: 1.4rem;
+        color: var(--primary-dark);
+        margin-bottom: 6px;
+      }
+      p.subtitle {
+        font-size: 0.85rem;
+        color: #666;
+      }
+      .card {
+        background: var(--card-bg);
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 16px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      }
+      .card-title {
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .badge-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+      .badge {
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .badge-success { background: #e8f5e9; color: var(--success); }
+      .badge-danger { background: #ffebee; color: var(--danger); }
+      .badge-warning { background: #fff3e0; color: var(--warning); }
+      .coord-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+        font-size: 0.85rem;
+      }
+      .coord-item {
+        background: #f8f9fa;
+        padding: 8px 12px;
+        border-radius: 8px;
+      }
+      .coord-label { color: #666; font-size: 0.75rem; }
+      .coord-value { font-weight: 600; font-family: monospace; font-size: 0.9rem; }
+      .btn-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+      button {
+        padding: 12px;
+        border-radius: 8px;
+        border: none;
+        background: var(--primary);
+        color: white;
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+      button:active { background: var(--primary-dark); }
+      button.btn-danger { background: var(--danger); }
+      button.btn-outline {
+        background: transparent;
+        border: 1px solid var(--primary);
+        color: var(--primary);
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .log-box {
+        background: #1e1e1e;
+        color: #d4d4d4;
+        border-radius: 8px;
+        padding: 12px;
+        font-family: monospace;
+        font-size: 0.75rem;
+        max-height: 180px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+      }
+
+      /* GATING OVERLAY */
+      #gatingOverlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.85);
+        backdrop-filter: blur(4px);
+        z-index: 9999;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+      .gating-card {
+        background: white;
+        border-radius: 16px;
+        padding: 24px;
+        max-width: 360px;
+        width: 100%;
+        text-align: center;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+      }
+      .gating-icon {
+        font-size: 3.5rem;
+        margin-bottom: 12px;
+      }
+      .gating-title {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--danger);
+        margin-bottom: 8px;
+      }
+      .gating-desc {
+        font-size: 0.85rem;
+        color: #555;
+        line-height: 1.4;
+        margin-bottom: 16px;
+      }
+      .gating-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+    </style>
   </head>
   <body>
+    <!-- GATING MODAL BLOKIR -->
+    <div id="gatingOverlay">
+      <div class="gating-card">
+        <div id="gatingIcon" class="gating-icon">⚠️</div>
+        <h2 id="gatingTitle" class="gating-title">Akses Lokasi Dibatasi</h2>
+        <p id="gatingDesc" class="gating-desc">
+          Aplikasi Wahana SWB membutuhkan GPS aktif dan asli untuk memproses transaksi.
+        </p>
+
+        <div id="gatingBadges" style="margin-bottom: 16px;"></div>
+
+        <div class="gating-actions">
+          <button id="btnFixGps" onclick="handleOpenLocationSettings()">Nyalakan GPS</button>
+          <button id="btnFixPerm" class="btn-outline" onclick="handleRequestPermissions()">Beri Izin Lokasi</button>
+          <button class="btn-outline" onclick="handleCheckStatus()">Cek Ulang Status</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MAIN APP INTERFACE -->
+    <header>
+      <h1>Wahana GPS Plugin Demo</h1>
+      <p class="subtitle">Realtime Tracking, Anti-Fake GPS & Gating System</p>
+    </header>
+
     <main>
-      <h1>Capacitor Test Plugin Project</h1>
-      <p>
-        This project can be used to test out the functionality of your plugin. Nothing in the
-        <em>example-app/</em> folder will be published to npm when using this template, so you can create away!
-      </p>
-      <label for="echoInput">Echo Text:</label>
-      <input type="text" id="echoInput" name="echoInput" value="Hello World!" />
-      <button onclick="testEcho()">Click Me!</button>
+      <!-- STATUS GATING -->
+      <section class="card">
+        <div class="card-title">
+          <span>Status Gating Aplikasi</span>
+          <span id="badgeUsable" class="badge badge-success">USABLE</span>
+        </div>
+        <div class="badge-row">
+          <span id="badgeGps" class="badge badge-success">GPS: AKTIF</span>
+          <span id="badgePerm" class="badge badge-success">IZIN: DIBERIKAN</span>
+          <span id="badgeMock" class="badge badge-success">FAKE GPS: TIDAK</span>
+        </div>
+      </section>
+
+      <!-- DATA LOKASI -->
+      <section class="card">
+        <div class="card-title">
+          <span>Data Koordinat Realtime</span>
+          <span id="watchStatusText" style="font-size: 0.75rem; color: #666;">Idle</span>
+        </div>
+        <div class="coord-grid">
+          <div class="coord-item">
+            <div class="coord-label">Latitude</div>
+            <div id="valLat" class="coord-value">-</div>
+          </div>
+          <div class="coord-item">
+            <div class="coord-label">Longitude</div>
+            <div id="valLng" class="coord-value">-</div>
+          </div>
+          <div class="coord-item">
+            <div class="coord-label">Akurasi</div>
+            <div id="valAcc" class="coord-value">-</div>
+          </div>
+          <div class="coord-item">
+            <div class="coord-label">Kecepatan</div>
+            <div id="valSpeed" class="coord-value">-</div>
+          </div>
+          <div class="coord-item">
+            <div class="coord-label">Mock / Fake GPS</div>
+            <div id="valIsMock" class="coord-value">-</div>
+          </div>
+          <div class="coord-item">
+            <div class="coord-label">Timestamp</div>
+            <div id="valTime" class="coord-value">-</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TOMBOL AKSI -->
+      <section class="card">
+        <div class="card-title">Kontrol Pengujian</div>
+        <div class="btn-grid">
+          <button onclick="handleGetCurrentPosition()">Ambil Posisi (Sekali)</button>
+          <button id="btnWatch" onclick="handleToggleWatch()">Mulai Watch (Realtime)</button>
+          <button class="btn-outline" onclick="handleCheckStatus()">Cek Status Lokasi</button>
+          <button class="btn-outline" onclick="handleOpenLocationSettings()">Buka Pengaturan GPS</button>
+          <button class="btn-outline" onclick="handleOpenAppSettings()">Pengaturan Izin App</button>
+          <button class="btn-outline" onclick="clearLogs()">Bersihkan Log</button>
+        </div>
+      </section>
+
+      <!-- EVENT LOGS -->
+      <section class="card">
+        <div class="card-title">Log Event Realtime</div>
+        <div id="logBox" class="log-box">[System] Siap melakukan pengujian plugin.</div>
+      </section>
     </main>
 
     <script src="./js/example.js" type="module"></script>

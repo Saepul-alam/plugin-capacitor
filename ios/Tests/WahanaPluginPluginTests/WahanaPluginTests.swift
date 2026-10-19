@@ -1,15 +1,53 @@
 import XCTest
+import CoreLocation
 @testable import WahanaPluginPlugin
 
 class WahanaPluginTests: XCTestCase {
-    func testEcho() {
-        // This is an example of a functional test case for a plugin.
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
 
+    func testCalculateStatus_AllValid() {
         let implementation = WahanaPlugin()
-        let value = "Hello, World!"
-        let result = implementation.echo(value)
+        let result = implementation.calculateStatus(enabled: true, granted: true, isMock: false)
 
-        XCTAssertEqual(value, result)
+        XCTAssertEqual(result["enabled"] as? Bool, true)
+        XCTAssertEqual(result["granted"] as? Bool, true)
+        XCTAssertEqual(result["isMock"] as? Bool, false)
+        XCTAssertEqual(result["usable"] as? Bool, true)
+    }
+
+    func testCalculateStatus_GpsDisabled() {
+        let implementation = WahanaPlugin()
+        let result = implementation.calculateStatus(enabled: false, granted: true, isMock: false)
+
+        XCTAssertEqual(result["usable"] as? Bool, false)
+    }
+
+    func testCalculateStatus_PermissionDenied() {
+        let implementation = WahanaPlugin()
+        let result = implementation.calculateStatus(enabled: true, granted: false, isMock: false)
+
+        XCTAssertEqual(result["usable"] as? Bool, false)
+    }
+
+    func testCalculateStatus_MockDetected() {
+        let implementation = WahanaPlugin()
+        let result = implementation.calculateStatus(enabled: true, granted: true, isMock: true)
+
+        XCTAssertEqual(result["usable"] as? Bool, false)
+    }
+
+    func testFormatLocation() {
+        let implementation = WahanaPlugin()
+        let location = CLLocation(latitude: -6.2088, longitude: 106.8456)
+        let formatted = implementation.formatLocation(location)
+
+        XCTAssertNotNil(formatted["timestamp"])
+        guard let coords = formatted["coords"] as? [String: Any] else {
+            XCTFail("coords should be dictionary")
+            return
+        }
+
+        XCTAssertEqual(coords["latitude"] as? Double, -6.2088)
+        XCTAssertEqual(coords["longitude"] as? Double, 106.8456)
+        XCTAssertEqual(coords["isMock"] as? Bool, false)
     }
 }
