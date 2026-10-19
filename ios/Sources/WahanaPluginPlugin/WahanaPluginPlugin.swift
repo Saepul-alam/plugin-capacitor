@@ -7,7 +7,7 @@ import CoreLocation
  * Provides high-accuracy real-time location streaming and anti-mock / simulation detection.
  */
 @objc(WahanaPluginPlugin)
-public class WahanaPluginPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDelegate {
+public class WahanaPluginPlugin: CAPPlugin, CLLocationManagerDelegate {
     public let identifier = "WahanaPluginPlugin"
     public let jsName = "WahanaPlugin"
     public let pluginMethods: [CAPPluginMethod] = [

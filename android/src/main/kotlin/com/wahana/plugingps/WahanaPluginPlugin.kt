@@ -5,20 +5,19 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationManager
 import android.net.Uri
 import android.os.Build
 import android.os.Looper
 import android.provider.Settings
+import androidx.core.content.ContextCompat
 import com.getcapacitor.JSObject
-import com.getcapacitor.PermissionState
+import com.getcapacitor.NativePlugin
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
-import com.getcapacitor.annotation.CapacitorPlugin
-import com.getcapacitor.annotation.Permission
-import com.getcapacitor.annotation.PermissionCallback
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
@@ -28,19 +27,19 @@ import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
 import java.util.concurrent.ConcurrentHashMap
 
-@CapacitorPlugin(
+@NativePlugin(
     name = "WahanaPlugin",
+    requestCodes = [WahanaPluginPlugin.REQUEST_LOCATION_PERMISSION],
     permissions = [
-        Permission(
-            alias = "location",
-            strings = [
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION
-            ]
-        )
+        Manifest.permission.ACCESS_FINE_LOCATION,
+        Manifest.permission.ACCESS_COARSE_LOCATION
     ]
 )
 class WahanaPluginPlugin : Plugin() {
+
+    companion object {
+        const val REQUEST_LOCATION_PERMISSION = 1000
+    }
 
     private val implementation = WahanaPlugin()
     private lateinit var fusedLocationClient: FusedLocationProviderClient
@@ -80,10 +79,22 @@ class WahanaPluginPlugin : Plugin() {
         super.handleOnDestroy()
     }
 
+    private fun isLocationPermissionGranted(): Boolean {
+        val fine = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        val coarse = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        return fine || coarse
+    }
+
     @SuppressLint("MissingPermission")
     @PluginMethod
     fun getCurrentPosition(call: PluginCall) {
-        if (getPermissionState("location") != PermissionState.GRANTED) {
+        if (!isLocationPermissionGranted()) {
             call.reject("Location permission not granted")
             return
         }
@@ -111,7 +122,6 @@ class WahanaPluginPlugin : Plugin() {
                     }
                     call.resolve(implementation.formatLocation(location))
                 } else {
-                    // Fallback to last location
                     fusedLocationClient.lastLocation.addOnSuccessListener { fallback: Location? ->
                         if (fallback != null) {
                             lastKnownLocation = fallback
@@ -135,7 +145,7 @@ class WahanaPluginPlugin : Plugin() {
     @SuppressLint("MissingPermission")
     @PluginMethod(returnType = PluginMethod.RETURN_CALLBACK)
     fun watchPosition(call: PluginCall) {
-        if (getPermissionState("location") != PermissionState.GRANTED) {
+        if (!isLocationPermissionGranted()) {
             call.reject("Location permission not granted")
             return
         }
@@ -218,24 +228,52 @@ class WahanaPluginPlugin : Plugin() {
     @PluginMethod
     fun checkLocationStatus(call: PluginCall) {
         val enabled = implementation.isLocationEnabled(context)
-        val granted = getPermissionState("location") == PermissionState.GRANTED
+        val granted = isLocationPermissionGranted()
         val isMock = implementation.isLocationMock(lastKnownLocation)
         call.resolve(implementation.calculateStatus(enabled, granted, isMock))
     }
 
     @PluginMethod
+    override fun checkPermissions(call: PluginCall) {
+        val granted = isLocationPermissionGranted()
+        val permString = if (granted) "granted" else "prompt"
+        val ret = JSObject().apply {
+            put("location", permString)
+            put("coarseLocation", permString)
+        }
+        call.resolve(ret)
+    }
+
+    @PluginMethod
     override fun requestPermissions(call: PluginCall) {
-        if (getPermissionState("location") == PermissionState.GRANTED) {
+        if (isLocationPermissionGranted()) {
             checkPermissions(call)
         } else {
-            requestPermissionForAlias("location", call, "locationPermissionsCallback")
+            saveCall(call)
+            pluginRequestPermissions(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                ),
+                REQUEST_LOCATION_PERMISSION
+            )
         }
     }
 
-    @PermissionCallback
-    private fun locationPermissionsCallback(call: PluginCall) {
-        emitLocationStatusChanged()
-        checkPermissions(call)
+    override fun handleRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>?,
+        grantResults: IntArray?
+    ) {
+        super.handleRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQUEST_LOCATION_PERMISSION) {
+            emitLocationStatusChanged()
+            val saved = savedCall
+            if (saved != null) {
+                checkPermissions(saved)
+                freeSavedCall()
+            }
+        }
     }
 
     @PluginMethod
@@ -259,7 +297,7 @@ class WahanaPluginPlugin : Plugin() {
 
     private fun emitLocationStatusChanged() {
         val enabled = implementation.isLocationEnabled(context)
-        val granted = getPermissionState("location") == PermissionState.GRANTED
+        val granted = isLocationPermissionGranted()
         val isMock = implementation.isLocationMock(lastKnownLocation)
         notifyListeners("locationStatusChanged", implementation.calculateStatus(enabled, granted, isMock))
     }
