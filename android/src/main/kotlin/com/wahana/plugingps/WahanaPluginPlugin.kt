@@ -46,6 +46,7 @@ class WahanaPluginPlugin : Plugin() {
     private val watchCallbacks = ConcurrentHashMap<String, LocationCallback>()
     private var lastKnownLocation: Location? = null
     private var gatingDialog: android.app.AlertDialog? = null
+    private var isPermissionRequestPending = false
 
     override fun load() {
         super.load()
@@ -90,11 +91,14 @@ class WahanaPluginPlugin : Plugin() {
 
     override fun handleOnResume() {
         super.handleOnResume()
+        if (isPermissionRequestPending) {
+            return
+        }
         activity?.runOnUiThread {
             if (isLocationPermissionGranted() && implementation.isLocationEnabled(context) && !implementation.isLocationMock(lastKnownLocation)) {
                 dismissNativeGatingDialog()
                 emitLocationStatusChanged()
-            } else {
+            } else if (gatingDialog?.isShowing == true || !implementation.isLocationEnabled(context) || !isLocationPermissionGranted()) {
                 checkAndEnforce(null)
             }
         }
@@ -290,9 +294,10 @@ class WahanaPluginPlugin : Plugin() {
     ) {
         super.handleRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == REQUEST_LOCATION_PERMISSION) {
+            isPermissionRequestPending = false
             emitLocationStatusChanged()
             val granted = isLocationPermissionGranted()
-            val saved = savedCall
+            val saved = try { savedCall } catch (_: Exception) { null }
 
             if (!granted) {
                 // Izin DITOLAK! Langsung kunci layar dengan Native AlertDialog agar aplikasi tidak bisa dipakai
@@ -315,7 +320,12 @@ class WahanaPluginPlugin : Plugin() {
                 // Izin DIBERIKAN! Lanjut cek status GPS & Fake GPS
                 checkAndEnforce(saved)
             }
-            freeSavedCall()
+            if (saved != null) {
+                try {
+                    freeSavedCall()
+                } catch (_: Exception) {
+                }
+            }
         }
     }
 
@@ -348,6 +358,10 @@ class WahanaPluginPlugin : Plugin() {
 
         // 1. Cek izin lokasi
         if (!isLocationPermissionGranted()) {
+            if (isPermissionRequestPending) {
+                return
+            }
+            isPermissionRequestPending = true
             if (call != null) {
                 saveCall(call)
             }
