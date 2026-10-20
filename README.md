@@ -160,6 +160,26 @@ export default {
 
 ---
 
+### Opsi Cepat: Native Gating Otomatis Setelah Splash Screen (`enforceLocation`)
+
+Jika ingin setelah splash screen aplikasi langsung meminta izin lokasi dan **mengunci layar secara native (AlertDialog non-cancelable)** jika izin ditolak atau GPS mati:
+
+```javascript
+// Di src/App.vue atau boot file Quasar (misal: boot/location-gate.js)
+import { WahanaPlugin } from 'capacitor-plugingps-wahana';
+
+export default {
+  async mounted() {
+    // Cukup 1 baris kode ini!
+    // Meminta izin otomatis, cek GPS, deteksi Mock/Fake GPS,
+    // dan langsung memblokir layar aplikasi jika izin tidak diberikan atau GPS mati.
+    await WahanaPlugin.enforceLocation();
+  }
+};
+```
+
+---
+
 ## Matriks Pengujian Verifikasi (6 Skenario)
 
 | No | Skenario Pengujian | Tindakan Pengujian | Hasil yang Diharapkan |
@@ -188,6 +208,8 @@ export default {
 * [`openAppSettings()`](#openappsettings)
 * [`addListener('locationStatusChanged', ...)`](#addlistenerlocationstatuschanged-)
 * [`addListener('location', ...)`](#addlistenerlocation-)
+* [`enforceLocation(...)`](#enforcelocation)
+* [`dismissGatingDialog()`](#dismissgatingdialog)
 * [Interfaces](#interfaces)
 * [Type Aliases](#type-aliases)
 
@@ -382,6 +404,40 @@ Listen for streaming position updates.
 --------------------
 
 
+### enforceLocation(...)
+
+```typescript
+enforceLocation(options?: EnforceLocationOptions | undefined) => Promise<LocationStatus>
+```
+
+Enforce location gating at startup.
+Automatically requests location permissions immediately, checks GPS status,
+detects fake GPS, and completely blocks the application if location is not usable.
+
+| Param         | Type                                                                      |
+| ------------- | ------------------------------------------------------------------------- |
+| **`options`** | <code><a href="#enforcelocationoptions">EnforceLocationOptions</a></code> |
+
+**Returns:** <code>Promise&lt;<a href="#locationstatus">LocationStatus</a>&gt;</code>
+
+**Since:** 1.0.0
+
+--------------------
+
+
+### dismissGatingDialog()
+
+```typescript
+dismissGatingDialog() => Promise<void>
+```
+
+Manually dismiss any active native gating dialog.
+
+**Since:** 1.0.0
+
+--------------------
+
+
 ### Interfaces
 
 
@@ -455,6 +511,18 @@ Listen for streaming position updates.
 | Prop         | Type                                      |
 | ------------ | ----------------------------------------- |
 | **`remove`** | <code>() =&gt; Promise&lt;void&gt;</code> |
+
+
+#### EnforceLocationOptions
+
+| Prop                          | Type                | Description                                                             |
+| ----------------------------- | ------------------- | ----------------------------------------------------------------------- |
+| **`title`**                   | <code>string</code> | Dialog title when gating is active.                                     |
+| **`messagePermissionDenied`** | <code>string</code> | Custom message displayed when permission is denied.                     |
+| **`messageGpsDisabled`**      | <code>string</code> | Custom message displayed when GPS service is disabled.                  |
+| **`messageMockDetected`**     | <code>string</code> | Custom message displayed when Fake GPS / mock location is detected.     |
+| **`actionButtonLabel`**       | <code>string</code> | Label for the action button (e.g. 'Nyalakan GPS' or 'Buka Pengaturan'). |
+| **`exitButtonLabel`**         | <code>string</code> | Label for the exit button.                                              |
 
 
 ### Type Aliases

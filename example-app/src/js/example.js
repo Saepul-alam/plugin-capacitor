@@ -124,7 +124,8 @@ async function init() {
       updateCoordUI(pos);
     });
 
-    const initialStatus = await WahanaPlugin.checkLocationStatus();
+    logMessage('Menjalankan enforceLocation otomatis saat startup...');
+    const initialStatus = await WahanaPlugin.enforceLocation();
     logMessage(`Status awal: usable=${initialStatus.usable}`);
     updateStatusUI(initialStatus);
   } catch (err) {
@@ -213,6 +214,17 @@ window.handleCheckStatus = async () => {
     updateStatusUI(status);
   } catch (e) {
     logMessage(`Error checkLocationStatus: ${e.message}`);
+  }
+};
+
+window.handleEnforceLocation = async () => {
+  logMessage('Menjalankan enforceLocation (Native Gating Blocker)...');
+  try {
+    const status = await WahanaPlugin.enforceLocation();
+    logMessage(`Hasil enforceLocation: ${JSON.stringify(status)}`);
+    updateStatusUI(status);
+  } catch (e) {
+    logMessage(`Error enforceLocation: ${e.message}`);
   }
 };
 

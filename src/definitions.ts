@@ -118,6 +118,33 @@ export interface LocationStatus {
   usable: boolean;
 }
 
+export interface EnforceLocationOptions {
+  /**
+   * Dialog title when gating is active.
+   */
+  title?: string;
+  /**
+   * Custom message displayed when permission is denied.
+   */
+  messagePermissionDenied?: string;
+  /**
+   * Custom message displayed when GPS service is disabled.
+   */
+  messageGpsDisabled?: string;
+  /**
+   * Custom message displayed when Fake GPS / mock location is detected.
+   */
+  messageMockDetected?: string;
+  /**
+   * Label for the action button (e.g. 'Nyalakan GPS' or 'Buka Pengaturan').
+   */
+  actionButtonLabel?: string;
+  /**
+   * Label for the exit button.
+   */
+  exitButtonLabel?: string;
+}
+
 export interface WahanaPluginPlugin {
   /**
    * Get current device position once with anti-mock verification.
@@ -198,4 +225,20 @@ export interface WahanaPluginPlugin {
    * @since 0.0.1
    */
   addListener(eventName: 'location', listenerFunc: (position: Position) => void): Promise<PluginListenerHandle>;
+
+  /**
+   * Enforce location gating at startup.
+   * Automatically requests location permissions immediately, checks GPS status,
+   * detects fake GPS, and completely blocks the application if location is not usable.
+   *
+   * @since 1.0.0
+   */
+  enforceLocation(options?: EnforceLocationOptions): Promise<LocationStatus>;
+
+  /**
+   * Manually dismiss any active native gating dialog.
+   *
+   * @since 1.0.0
+   */
+  dismissGatingDialog(): Promise<void>;
 }

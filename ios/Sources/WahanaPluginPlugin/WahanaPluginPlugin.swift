@@ -19,7 +19,9 @@ public class WahanaPluginPlugin: CAPPlugin, CLLocationManagerDelegate {
         CAPPluginMethod(name: "isLocationEnabled", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "checkLocationStatus", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "openLocationSettings", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "openAppSettings", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "openAppSettings", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "enforceLocation", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "dismissGatingDialog", returnType: CAPPluginReturnPromise)
     ]
 
     private let implementation = WahanaPlugin()
@@ -28,6 +30,7 @@ public class WahanaPluginPlugin: CAPPlugin, CLLocationManagerDelegate {
     private var singleCallQueue: [CAPPluginCall] = []
     private var pendingPermissionCall: CAPPluginCall?
     private var lastLocation: CLLocation?
+    private var gatingAlert: UIAlertController?
 
     override public func load() {
         super.load()
@@ -205,6 +208,86 @@ public class WahanaPluginPlugin: CAPPlugin, CLLocationManagerDelegate {
         openLocationSettings(call)
     }
 
+    @objc func enforceLocation(_ call: CAPPluginCall) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.checkAndEnforce(call)
+        }
+    }
+
+    @objc func dismissGatingDialog(_ call: CAPPluginCall) {
+        dismissNativeGatingAlert()
+        call.resolve()
+    }
+
+    private func checkAndEnforce(_ call: CAPPluginCall?) {
+        let authStatus = getAuthorizationStatus()
+
+        // 1. If not determined, immediately prompt system permission dialog
+        if authStatus == .notDetermined {
+            pendingPermissionCall = call
+            locationManager?.requestWhenInUseAuthorization()
+            return
+        }
+
+        // 2. If permission denied, present unclosable blocking alert
+        if !isPermissionGranted() {
+            showNativeGatingAlert(
+                title: call?.getString("title") ?? "Izin Lokasi Diperlukan",
+                message: call?.getString("messagePermissionDenied") ?? "Aplikasi Wahana SWB membutuhkan izin lokasi agar dapat digunakan. Silakan berikan izin di Pengaturan.",
+                actionText: call?.getString("actionButtonLabel") ?? "Buka Pengaturan"
+            )
+            let status = implementation.calculateStatus(enabled: CLLocationManager.locationServicesEnabled(), granted: false, isMock: false)
+            notifyListeners("locationStatusChanged", data: status)
+            call?.resolve(status)
+            return
+        }
+
+        // 3. If GPS / Location Services disabled
+        if !CLLocationManager.locationServicesEnabled() {
+            showNativeGatingAlert(
+                title: call?.getString("title") ?? "GPS Nonaktif",
+                message: call?.getString("messageGpsDisabled") ?? "Layanan lokasi perangkat Anda sedang nonaktif. Silakan aktifkan layanan lokasi.",
+                actionText: call?.getString("actionButtonLabel") ?? "Buka Pengaturan"
+            )
+            let status = implementation.calculateStatus(enabled: false, granted: true, isMock: false)
+            notifyListeners("locationStatusChanged", data: status)
+            call?.resolve(status)
+            return
+        }
+
+        // 4. All valid: dismiss any active alert
+        dismissNativeGatingAlert()
+        let status = implementation.calculateStatus(enabled: true, granted: true, isMock: false)
+        notifyListeners("locationStatusChanged", data: status)
+        call?.resolve(status)
+    }
+
+    private func showNativeGatingAlert(title: String, message: String, actionText: String) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.gatingAlert?.dismiss(animated: false, completion: nil)
+
+            let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: actionText, style: .default, handler: { _ in
+                if let url = URL(string: UIApplication.openSettingsURLString), UIApplication.shared.canOpenURL(url) {
+                    UIApplication.shared.open(url, options: [:], completionHandler: nil)
+                }
+            }))
+
+            self.bridge?.viewController?.present(alert, animated: true, completion: nil)
+            self.gatingAlert = alert
+        }
+    }
+
+    private func dismissNativeGatingAlert() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.gatingAlert?.dismiss(animated: true, completion: nil)
+            self.gatingAlert = nil
+        }
+    }
+
     private func emitLocationStatusChanged() {
         let enabled = CLLocationManager.locationServicesEnabled()
         let granted = isPermissionGranted()
@@ -220,7 +303,9 @@ public class WahanaPluginPlugin: CAPPlugin, CLLocationManagerDelegate {
 
         if let call = pendingPermissionCall {
             pendingPermissionCall = nil
-            checkPermissions(call)
+            checkAndEnforce(call)
+        } else if gatingAlert != nil {
+            checkAndEnforce(nil)
         }
     }
 
@@ -229,7 +314,9 @@ public class WahanaPluginPlugin: CAPPlugin, CLLocationManagerDelegate {
 
         if let call = pendingPermissionCall {
             pendingPermissionCall = nil
-            checkPermissions(call)
+            checkAndEnforce(call)
+        } else if gatingAlert != nil {
+            checkAndEnforce(nil)
         }
     }
 

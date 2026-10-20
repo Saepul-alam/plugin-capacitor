@@ -11,5 +11,7 @@ CAP_PLUGIN(WahanaPluginPlugin, "WahanaPlugin",
     CAP_PLUGIN_METHOD(checkLocationStatus, CAPPluginReturnPromise);
     CAP_PLUGIN_METHOD(openLocationSettings, CAPPluginReturnPromise);
     CAP_PLUGIN_METHOD(openAppSettings, CAPPluginReturnPromise);
+    CAP_PLUGIN_METHOD(enforceLocation, CAPPluginReturnPromise);
+    CAP_PLUGIN_METHOD(dismissGatingDialog, CAPPluginReturnPromise);
 )
 

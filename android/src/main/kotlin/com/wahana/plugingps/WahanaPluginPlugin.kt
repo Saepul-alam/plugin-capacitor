@@ -46,6 +46,7 @@ class WahanaPluginPlugin : Plugin() {
     private var providerReceiver: LocationProviderReceiver? = null
     private val watchCallbacks = ConcurrentHashMap<String, LocationCallback>()
     private var lastKnownLocation: Location? = null
+    private var gatingDialog: android.app.AlertDialog? = null
 
     override fun load() {
         super.load()
@@ -53,6 +54,9 @@ class WahanaPluginPlugin : Plugin() {
 
         providerReceiver = LocationProviderReceiver {
             emitLocationStatusChanged()
+            activity?.runOnUiThread {
+                checkAndEnforce(null)
+            }
         }
 
         val filter = IntentFilter(LocationManager.PROVIDERS_CHANGED_ACTION)
@@ -64,6 +68,7 @@ class WahanaPluginPlugin : Plugin() {
     }
 
     override fun handleOnDestroy() {
+        dismissNativeGatingDialog()
         providerReceiver?.let {
             try {
                 context.unregisterReceiver(it)
@@ -77,6 +82,18 @@ class WahanaPluginPlugin : Plugin() {
         }
         watchCallbacks.clear()
         super.handleOnDestroy()
+    }
+
+    override fun handleOnResume() {
+        super.handleOnResume()
+        activity?.runOnUiThread {
+            if (isLocationPermissionGranted() && implementation.isLocationEnabled(context) && !implementation.isLocationMock(lastKnownLocation)) {
+                dismissNativeGatingDialog()
+                emitLocationStatusChanged()
+            } else if (gatingDialog?.isShowing == true) {
+                checkAndEnforce(null)
+            }
+        }
     }
 
     private fun isLocationPermissionGranted(): Boolean {
@@ -268,11 +285,158 @@ class WahanaPluginPlugin : Plugin() {
         super.handleRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == REQUEST_LOCATION_PERMISSION) {
             emitLocationStatusChanged()
+            val granted = isLocationPermissionGranted()
             val saved = savedCall
-            if (saved != null) {
-                checkPermissions(saved)
-                freeSavedCall()
+
+            if (!granted) {
+                // Izin DITOLAK! Langsung kunci layar dengan Native AlertDialog agar aplikasi tidak bisa dipakai
+                showNativeGatingDialog(
+                    title = "Izin Lokasi Diperlukan",
+                    message = "Aplikasi Wahana SWB tidak dapat digunakan tanpa izin lokasi presisi. Silakan berikan izin di Pengaturan Aplikasi untuk melanjutkan.",
+                    actionText = "Buka Pengaturan",
+                    exitText = "Keluar",
+                    onAction = {
+                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                            data = Uri.fromParts("package", context.packageName, null)
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        }
+                        context.startActivity(intent)
+                    }
+                )
+                val status = implementation.calculateStatus(enabled = implementation.isLocationEnabled(context), granted = false, isMock = false)
+                saved?.resolve(status)
+            } else {
+                // Izin DIBERIKAN! Lanjut cek status GPS & Fake GPS
+                checkAndEnforce(saved)
             }
+            freeSavedCall()
+        }
+    }
+
+    @PluginMethod
+    fun enforceLocation(call: PluginCall) {
+        activity?.runOnUiThread {
+            checkAndEnforce(call)
+        }
+    }
+
+    @PluginMethod
+    fun dismissGatingDialog(call: PluginCall) {
+        dismissNativeGatingDialog()
+        call.resolve()
+    }
+
+    private fun checkAndEnforce(call: PluginCall?) {
+        val currentActivity = activity
+        if (currentActivity == null || currentActivity.isFinishing) return
+
+        val title = call?.getString("title") ?: "Akses Lokasi Wajib Aktif"
+        val msgDenied = call?.getString("messagePermissionDenied")
+            ?: "Aplikasi Wahana SWB membutuhkan izin lokasi presisi agar dapat digunakan. Silakan berikan izin untuk melanjutkan."
+        val msgGps = call?.getString("messageGpsDisabled")
+            ?: "Layanan GPS perangkat Anda sedang mati. Aktifkan GPS untuk dapat menggunakan aplikasi."
+        val msgMock = call?.getString("messageMockDetected")
+            ?: "Aplikasi pemalsu lokasi (Fake GPS) terdeteksi aktif. Matikan Fake GPS untuk melanjutkan transaksi."
+        val actionLabel = call?.getString("actionButtonLabel")
+        val exitLabel = call?.getString("exitButtonLabel") ?: "Keluar"
+
+        // 1. Cek izin lokasi
+        if (!isLocationPermissionGranted()) {
+            if (call != null) {
+                saveCall(call)
+            }
+            pluginRequestPermissions(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                ),
+                REQUEST_LOCATION_PERMISSION
+            )
+            return
+        }
+
+        // 2. Cek apakah GPS perangkat mati
+        if (!implementation.isLocationEnabled(context)) {
+            showNativeGatingDialog(
+                title = title,
+                message = msgGps,
+                actionText = actionLabel ?: "Nyalakan GPS",
+                exitText = exitLabel,
+                onAction = {
+                    val intent = Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    }
+                    context.startActivity(intent)
+                }
+            )
+            val status = implementation.calculateStatus(enabled = false, granted = true, isMock = false)
+            notifyListeners("locationStatusChanged", status)
+            call?.resolve(status)
+            return
+        }
+
+        // 3. Cek manipulasi Fake GPS
+        val isMock = implementation.isLocationMock(lastKnownLocation)
+        if (isMock) {
+            showNativeGatingDialog(
+                title = title,
+                message = msgMock,
+                actionText = actionLabel ?: "Coba Lagi",
+                exitText = exitLabel,
+                onAction = {
+                    checkAndEnforce(call)
+                }
+            )
+            val status = implementation.calculateStatus(enabled = true, granted = true, isMock = true)
+            notifyListeners("locationStatusChanged", status)
+            call?.resolve(status)
+            return
+        }
+
+        // 4. Semua valid: tutup dialog native gating jika ada
+        dismissNativeGatingDialog()
+        val status = implementation.calculateStatus(enabled = true, granted = true, isMock = false)
+        notifyListeners("locationStatusChanged", status)
+        call?.resolve(status)
+    }
+
+    private fun showNativeGatingDialog(
+        title: String,
+        message: String,
+        actionText: String,
+        exitText: String,
+        onAction: () -> Unit
+    ) {
+        val currentActivity = activity ?: return
+        if (currentActivity.isFinishing) return
+
+        currentActivity.runOnUiThread {
+            if (gatingDialog?.isShowing == true) {
+                gatingDialog?.dismiss()
+            }
+            gatingDialog = android.app.AlertDialog.Builder(currentActivity)
+                .setTitle(title)
+                .setMessage(message)
+                .setCancelable(false)
+                .setPositiveButton(actionText) { _, _ ->
+                    onAction()
+                }
+                .setNegativeButton(exitText) { _, _ ->
+                    currentActivity.finishAffinity()
+                }
+                .create()
+
+            gatingDialog?.setCanceledOnTouchOutside(false)
+            gatingDialog?.show()
+        }
+    }
+
+    private fun dismissNativeGatingDialog() {
+        activity?.runOnUiThread {
+            if (gatingDialog?.isShowing == true) {
+                gatingDialog?.dismiss()
+            }
+            gatingDialog = null
         }
     }
 
