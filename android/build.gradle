@@ -67,8 +67,10 @@ android {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
-    kotlinOptions {
-        jvmTarget = "1.8"
+    if (project.plugins.hasPlugin('kotlin-android')) {
+        kotlinOptions {
+            jvmTarget = "1.8"
+        }
     }
 }
 
@@ -78,11 +80,11 @@ repositories {
 }
 
 dependencies {
-    implementation fileTree(dir: 'libs', include: ['*.jar'])
-    implementation project(':capacitor-android')
-    implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlinVersion"
-    implementation "com.google.android.gms:play-services-location:$playServicesLocationVersion"
-    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
-    implementation "androidx.core:core:$androidxCoreVersion"
+    api fileTree(dir: 'libs', include: ['*.jar'])
+    api project(':capacitor-android')
+    api "org.jetbrains.kotlin:kotlin-stdlib:$kotlinVersion"
+    api "com.google.android.gms:play-services-location:$playServicesLocationVersion"
+    api "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    api "androidx.core:core:$androidxCoreVersion"
     testImplementation "junit:junit:$junitVersion"
 }
