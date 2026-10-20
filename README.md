@@ -1,195 +1,206 @@
 # capacitor-plugingps-wahana
 
-Plugin Capacitor kustom untuk aplikasi Wahana (termasuk aplikasi operasional kurir SWB) yang menyediakan **pelacakan lokasi real-time berakurasi tinggi**, **deteksi anti-manipulasi lokasi (Anti-Fake GPS / Mock Location)**, dan **sistem gating aplikasi** (memblokir akses operasional jika GPS mati, izin ditolak, atau Fake GPS terdeteksi).
+Plugin Capacitor kustom untuk aplikasi Wahana (khususnya aplikasi operasional kurir SWB) yang menyediakan **pelacakan lokasi real-time berakurasi tinggi**, **deteksi anti-manipulasi lokasi (Anti-Fake GPS / Mock Location)**, dan **sistem penguncian native otomatis (Gating System)** yang langsung memblokir akses aplikasi seketika setelah splash screen jika GPS mati, izin ditolak, atau Fake GPS terdeteksi.
 
-Kompatibel penuh dengan **Capacitor 3.x s/d 8.x**, termasuk **Quasar v1 (`@quasar/app` v2)**, **Vue 2**, dan **Webpack 4**.
-
----
-
-## Fitur Utama
-
-- ⚡ **Real-time High Accuracy Tracking**: Streaming data koordinat presisi tinggi via `watchPosition` dan event listener `location`.
-- 🛡️ **Anti-Fake GPS / Mock Location Detection**: Deteksi otomatis penggunaan aplikasi pemalsu lokasi di level hardware OS (`location.isMock` pada Android 12+, `isFromMockProvider` pada Android lama, dan `isSimulatedBySoftware` pada iOS 15+).
-- 🔒 **Gating System Otomatis**: Mendeteksi status gabungan `usable = enabled && granted && !isMock`. Layar aplikasi dapat langsung diblokir seketika jika GPS dimatikan atau Fake GPS dinyalakan.
-- 📡 **Instant Provider Broadcast Detection**: Menangkap perubahan saklar GPS di Quick Settings secara instan melalui broadcast receiver tanpa perlu polling.
-- ⚙️ **Quick Settings Launcher**: Navigasi langsung ke pengaturan GPS sistem (`openLocationSettings`) dan pengaturan izin aplikasi (`openAppSettings`).
+Ditulis **100% dalam Kotlin** dan kompatibel penuh dengan **Capacitor 2 (Quasar v1 / SWB)** maupun **Capacitor 3.x s/d 8.x**.
 
 ---
 
-## Instalasi
+## 🚀 Fitur Utama
+
+- 🔒 **Zero-Action Native Startup Gating**: Seketika setelah splash screen terbuka, plugin otomatis memeriksa izin dan status GPS. Jika GPS mati atau izin ditolak, muncul dialog native non-cancelable yang mengunci layar aplikasi (aplikasi tidak bisa digunakan sampai persyaratan dipenuhi).
+- ⚡ **Real-time High Accuracy Tracking**: Pelacakan koordinat presisi tinggi (1–3 detik) berbasis Google Fused Location Provider tanpa boros baterai.
+- 🛡️ **Anti-Fake GPS / Mock Location Detection**: Deteksi otomatis aplikasi pemalsu lokasi di level sistem operasi (`location.isMock` pada Android 12+, `isFromMockProvider` pada Android lama, dan `isSimulatedBySoftware` pada iOS 15+).
+- 📡 **Instant Broadcast Receiver**: Menangkap saklar on/off GPS di Quick Settings secara instan tanpa perlu polling interval.
+- ☕ **Zero-Config Kotlin Compatibility**: Bytecode Kotlin dipaketkan langsung sehingga aman dikompilasi pada proyek lama (seperti AGP 3.6.1 + Gradle 7.0) tanpa error `KotlinBasePlugin`.
+
+---
+
+## 📦 Cara Instalasi
+
+### 1. Instal Plugin via GitHub
+Jalankan perintah berikut di direktori proyek Anda (atau di folder `src-capacitor`):
 
 ```bash
-# Menggunakan npm
-npm install capacitor-plugingps-wahana
+npm install https://github.com/Saepul-alam/plugin-capacitor.git#w.1.0.0 --force
+```
 
-# Menggunakan yarn
-yarn add capacitor-plugingps-wahana
-
-# Sinkronisasi native project
-npx cap sync
+Lalu sinkronkan Capacitor ke Android:
+```bash
+npx cap sync android
 ```
 
 ---
 
-## Konfigurasi Platform Native
+## ⚙️ Konfigurasi Native Android
 
-### 1. Android (`AndroidManifest.xml`)
-Tambahkan izin lokasi berikut ke dalam file `android/app/src/main/AndroidManifest.xml` host app Anda:
+### A. Untuk Capacitor 2 (Proyek Quasar v1 / `swb`)
 
-```xml
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Izin Lokasi Presisi & Jaringan -->
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+1. **Daftarkan Plugin di `MainActivity.java`**
+   Buka file `android/app/src/main/java/.../MainActivity.java`:
+   ```java
+   package com.wahana.swbrc;
 
-    <application ...>
-        ...
-    </application>
-</manifest>
-```
+   import android.os.Bundle;
+   import com.getcapacitor.BridgeActivity;
+   import com.getcapacitor.Plugin;
+   import com.wahana.plugingps.WahanaPluginPlugin; // <--- 1. Import plugin
 
-> [!NOTE]
-> Plugin ini berjalan secara eksklusif dan optimal pada mode foreground, sehingga **tidak membutuhkan** izin latar belakang yang rumit seperti `ACCESS_BACKGROUND_LOCATION`, `FOREGROUND_SERVICE`, atau deklarasi video di Google Play Store.
+   import java.util.ArrayList;
 
-### 2. iOS (`Info.plist`)
-Tambahkan deskripsi izin lokasi ke dalam file `ios/App/App/Info.plist` host app Anda:
+   public class MainActivity extends BridgeActivity {
+     @Override
+     public void onCreate(Bundle savedInstanceState) {
+       super.onCreate(savedInstanceState);
 
-```xml
-<key>NSLocationWhenInUseUsageDescription</key>
-<string>Aplikasi Wahana membutuhkan akses lokasi untuk memvalidasi posisi pengantaran dan penjemputan paket.</string>
-```
+       // Daftarkan plugin di dalam ArrayList init
+       this.init(savedInstanceState, new ArrayList<Class<? extends Plugin>>() {{
+         add(WahanaPluginPlugin.class); // <--- 2. Daftarkan di sini
+       }});
+     }
+   }
+   ```
 
----
-
-## Panduan Integrasi Gating di Quasar v1 / Vue 2 (`swb`)
-
-Berikut adalah template komponen siap pakai untuk aplikasi `swb`:
-
-```vue
-<template>
-  <div>
-    <!-- GATING DIALOG SWB: Memblokir transaksi jika lokasi tidak usable -->
-    <q-dialog :value="!locationStatus.usable" persistent>
-      <q-card style="min-width: 320px" class="q-pa-md text-center">
-        <q-icon
-          :name="locationStatus.isMock ? 'security' : 'location_off'"
-          :color="locationStatus.isMock ? 'negative' : 'warning'"
-          size="4rem"
-        />
-        <div class="text-h6 q-mt-sm">
-          {{ locationStatus.isMock ? 'Manipulasi Lokasi Terdeteksi!' : 'Akses Lokasi Wajib Aktif' }}
-        </div>
-        <p class="text-grey-7 q-mt-xs">
-          Aplikasi SWB mewajibkan koordinat GPS asli yang aktif untuk memproses pengiriman.
-        </p>
-
-        <!-- Banner jika GPS Mati -->
-        <q-banner v-if="!locationStatus.enabled" dense class="bg-red-1 text-negative q-mb-sm rounded-borders">
-          GPS perangkat Anda saat ini sedang nonaktif.
-        </q-banner>
-
-        <!-- Banner jika Izin Belum Diberikan -->
-        <q-banner v-if="!locationStatus.granted" dense class="bg-orange-1 text-warning q-mb-sm rounded-borders">
-          Izin akses lokasi belum diberikan.
-        </q-banner>
-
-        <!-- Banner jika Fake GPS Aktif -->
-        <q-banner v-if="locationStatus.isMock" dense class="bg-red-2 text-negative text-bold q-mb-sm rounded-borders">
-          Aplikasi pemalsu lokasi (Fake GPS) terdeteksi aktif! Matikan Fake GPS untuk melanjutkan.
-        </q-banner>
-
-        <!-- Tombol Tindakan -->
-        <div class="column q-gutter-sm q-mt-md">
-          <q-btn v-if="!locationStatus.enabled" color="primary" label="Nyalakan GPS" @click="fixGps" />
-          <q-btn v-if="!locationStatus.granted" color="secondary" label="Beri Izin Lokasi" @click="fixPermission" />
-          <q-btn flat color="grey-8" label="Cek Ulang Status" @click="refreshStatus" />
-        </div>
-      </q-card>
-    </q-dialog>
-
-    <!-- KONTEN UTAMA SWB -->
-    <div v-if="locationStatus.usable">
-      <!-- Form pengiriman / absensi kurir -->
-    </div>
-  </div>
-</template>
-
-<script>
-import { WahanaPlugin, WahanaGps } from 'capacitor-plugingps-wahana';
-
-export default {
-  data() {
-    return {
-      locationStatus: {
-        enabled: true,
-        granted: true,
-        isMock: false,
-        usable: true
-      }
-    };
-  },
-  async mounted() {
-    // 1. Periksa status lokasi saat komponen dimuat
-    this.locationStatus = await WahanaPlugin.checkLocationStatus();
-
-    // 2. Dengarkan perubahan status seketika (toggle GPS on/off, perubahan izin, fake GPS)
-    WahanaPlugin.addListener('locationStatusChanged', (status) => {
-      this.locationStatus = status;
-    });
-
-    // 3. Periksa ulang saat aplikasi kembali dari background / Settings HP
-    document.addEventListener('resume', async () => {
-      this.locationStatus = await WahanaPlugin.checkLocationStatus();
-    });
-  },
-  methods: {
-    async fixGps() {
-      await WahanaPlugin.openLocationSettings();
-    },
-    async fixPermission() {
-      await WahanaPlugin.requestPermissions();
-      this.locationStatus = await WahanaPlugin.checkLocationStatus();
-    },
-    async refreshStatus() {
-      this.locationStatus = await WahanaPlugin.checkLocationStatus();
-    }
-  }
-};
-</script>
-```
+2. **Mirror Repository di `android/build.gradle` (Penting)**
+   Karena JCenter sudah ditutup permanen, tambahkan mirror Grails pada blok `allprojects.repositories` di `android/build.gradle` agar dependensi legacy Cordova dapat terunduh:
+   ```groovy
+   allprojects {
+       repositories {
+           google()
+           mavenCentral()
+           maven { url 'https://repo.grails.org/grails/core' }
+           jcenter()
+       }
+   }
+   ```
 
 ---
 
-### Opsi Cepat: Native Gating Otomatis Setelah Splash Screen (`enforceLocation`)
+### B. Untuk Capacitor 3 ke Atas (Capacitor 3, 4, 5, 6, 7, 8)
+Pada Capacitor 3+, pendaftaran berjalan **otomatis**. Anda cukup menjalankan:
+```bash
+npx cap sync android
+```
+Tanpa perlu mengubah file `MainActivity.java`.
 
-Jika ingin setelah splash screen aplikasi langsung meminta izin lokasi dan **mengunci layar secara native (AlertDialog non-cancelable)** jika izin ditolak atau GPS mati:
+---
 
+## 🛠️ Cara Build Android
+
+Karena Gradle 7.0 pada project ini memerlukan Java 11:
+
+```bash
+# 1. Masuk ke folder android
+cd android
+
+# 2. Build APK Debug
+JAVA_HOME=$(/usr/libexec/java_home -v 11) ./gradlew assembleDebug
+```
+
+File APK siap install akan berada di:
+`android/app/build/outputs/apk/debug/app-debug.apk`
+
+> [!TIP]
+> **Jika build menggunakan Quasar CLI (`@quasar/app` v2 di Node 17+):**
+> Sertakan `NODE_OPTIONS=--openssl-legacy-provider` dan `JAVA_HOME`:
+> ```bash
+> JAVA_HOME=$(/usr/libexec/java_home -v 11) NODE_OPTIONS=--openssl-legacy-provider npx quasar build -m capacitor -T android
+> ```
+
+---
+
+## 💻 Contoh Penggunaan di Vue / JavaScript
+
+### 1. Pelacakan Real-time Presisi Tinggi
 ```javascript
-// Di src/App.vue atau boot file Quasar (misal: boot/location-gate.js)
-import { WahanaPlugin } from 'capacitor-plugingps-wahana';
+import { Plugins } from '@capacitor/core';
+const { WahanaPlugin } = Plugins;
 
-export default {
-  async mounted() {
-    // Cukup 1 baris kode ini!
-    // Meminta izin otomatis, cek GPS, deteksi Mock/Fake GPS,
-    // dan langsung memblokir layar aplikasi jika izin tidak diberikan atau GPS mati.
-    await WahanaPlugin.enforceLocation();
+// Mulai tracking real-time
+const watchId = await WahanaPlugin.watchPosition(
+  {
+    enableHighAccuracy: true,
+    timeout: 5000,
+    maximumAge: 0
+  },
+  (position, err) => {
+    if (err) {
+      console.error('Error GPS:', err);
+      return;
+    }
+    console.log('Latitude:', position.coords.latitude);
+    console.log('Longitude:', position.coords.longitude);
+    console.log('Akurasi (m):', position.coords.accuracy);
+    console.log('Apakah Fake GPS?:', position.isMock);
   }
-};
+);
+
+// Hentikan tracking jika sudah selesai
+// await WahanaPlugin.stopWatch({ id: watchId });
+```
+
+### 2. Mengambil Posisi Satu Kali (Sekaligus Verifikasi Fake GPS)
+```javascript
+import { Plugins } from '@capacitor/core';
+const { WahanaPlugin } = Plugins;
+
+try {
+  const position = await WahanaPlugin.getCurrentPosition({
+    enableHighAccuracy: true,
+    timeout: 10000
+  });
+
+  if (position.isMock) {
+    alert('Peringatan: Fake GPS terdeteksi!');
+  } else {
+    console.log('Lokasi valid:', position.coords.latitude, position.coords.longitude);
+  }
+} catch (error) {
+  console.error('Gagal mengambil lokasi:', error);
+}
+```
+
+### 3. Memeriksa Status Lokasi & GPS
+```javascript
+import { Plugins } from '@capacitor/core';
+const { WahanaPlugin } = Plugins;
+
+const status = await WahanaPlugin.checkLocationStatus();
+console.log(status);
+// Output:
+// {
+//   enabled: true,   // GPS HP aktif
+//   granted: true,   // Izin lokasi diberikan
+//   isMock: false,   // Bukan Fake GPS
+//   usable: true     // Siap digunakan untuk transaksi
+// }
+```
+
+### 4. Menjalankan Native Gating secara Manual
+Jika ingin memicu dialog penguncian native kapan saja:
+```javascript
+await WahanaPlugin.enforceLocation({
+  title: 'Akses Lokasi Wajib Aktif',
+  messagePermissionDenied: 'Aplikasi SWB membutuhkan izin lokasi presisi agar dapat digunakan.',
+  messageGpsDisabled: 'Layanan GPS HP Anda sedang mati. Silakan nyalakan GPS untuk melanjutkan.',
+  messageMockDetected: 'Fake GPS terdeteksi aktif! Matikan aplikasi Fake GPS untuk melanjutkan.',
+  actionButtonLabel: 'Buka Pengaturan',
+  exitButtonLabel: 'Keluar'
+});
 ```
 
 ---
 
-## Matriks Pengujian Verifikasi (6 Skenario)
+## 🧪 Matriks Pengujian Skenario
 
 | No | Skenario Pengujian | Tindakan Pengujian | Hasil yang Diharapkan |
 | :---: | :--- | :--- | :--- |
-| **1** | **GPS Asli (Normal)** | Jalankan `watchPosition` atau buka aplikasi normal | Koordinat ter-update real-time, `isMock: false`, `usable: true`, aplikasi dapat digunakan. |
-| **2** | **Fake GPS Dijalankan** | Aktifkan aplikasi Fake GPS (Mock Location app) | Plugin langsung membaca `isMock: true`, `usable: false`. Dialog pemblokiran otomatis muncul mengunci aplikasi. |
-| **3** | **Fake GPS Dimatikan** | Nonaktifkan aplikasi Fake GPS | Status kembali `isMock: false`, `usable: true`. Dialog pemblokiran otomatis tertutup dengan sendirinya. |
-| **4** | **GPS Dimatikan di HP** | Tarik Quick Settings HP, matikan tombol Location/GPS | Event `locationStatusChanged` terpancar seketika (`enabled: false`, `usable: false`). Dialog "Nyalakan GPS" langsung mengunci layar. |
-| **5** | **Buka Settings & Nyalakan** | Klik "Nyalakan GPS", aktifkan di Settings, kembali ke aplikasi | Layar aplikasi otomatis terbuka kembali tanpa perlu restart aplikasi. |
-| **6** | **Izin Ditolak** | Tolak izin lokasi saat pertama kali diminta | Status `granted: false`, `usable: false`. Tombol "Beri Izin Lokasi" memandu user memberikan izin. |
+| **1** | **GPS Asli Aktif** | Buka aplikasi dalam kondisi GPS menyala | Aplikasi berjalan normal, koordinat terupdate real-time, `isMock: false`. |
+| **2** | **GPS Mati Saat Buka Aplikasi** | Buka aplikasi dengan GPS mati | Muncul dialog native non-cancelable. Tombol "Nyalakan GPS" membuka Settings, tombol "Keluar" menutup aplikasi. |
+| **3** | **GPS Dimatikan di Tengah Operasional** | Matikan tombol GPS di Quick Settings HP | Dialog penguncian langsung muncul seketika secara otomatis. |
+| **4** | **GPS Dinyalakan Kembali** | Aktifkan GPS dari Quick Settings / Settings | Dialog pengunci otomatis tertutup dan aplikasi dapat digunakan kembali. |
+| **5** | **Fake GPS Dijalankan** | Aktifkan aplikasi Fake GPS (Mock Location) | Plugin mendeteksi `isMock: true` dan memblokir layar aplikasi. |
+| **6** | **Izin Lokasi Ditolak** | Tolak izin lokasi saat pertama kali diminta | Aplikasi mengunci layar dan memandu membuka Pengaturan Aplikasi. |
 
 ---
 
