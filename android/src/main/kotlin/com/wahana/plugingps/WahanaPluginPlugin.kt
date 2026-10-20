@@ -64,6 +64,11 @@ class WahanaPluginPlugin : Plugin() {
         } else {
             context.registerReceiver(providerReceiver, filter)
         }
+
+        // Otomatis cek izin lokasi, GPS, dan Fake GPS seketika saat plugin dimuat
+        activity?.runOnUiThread {
+            checkAndEnforce(null)
+        }
     }
 
     override fun handleOnDestroy() {
@@ -89,7 +94,7 @@ class WahanaPluginPlugin : Plugin() {
             if (isLocationPermissionGranted() && implementation.isLocationEnabled(context) && !implementation.isLocationMock(lastKnownLocation)) {
                 dismissNativeGatingDialog()
                 emitLocationStatusChanged()
-            } else if (gatingDialog?.isShowing == true) {
+            } else {
                 checkAndEnforce(null)
             }
         }
