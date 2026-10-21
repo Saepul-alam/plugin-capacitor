@@ -48,7 +48,7 @@ class WahanaPluginPlugin : Plugin() {
     private var providerReceiver: LocationProviderReceiver? = null
     private val watchCallbacks = ConcurrentHashMap<String, LocationCallback>()
     private var lastKnownLocation: Location? = null
-    private var gatingDialog: android.app.AlertDialog? = null
+    private var gatingDialog: androidx.appcompat.app.AlertDialog? = null
     private var isPermissionRequestPending = false
     private var hasRequestedPermissionsOnce = false
 
@@ -73,9 +73,11 @@ class WahanaPluginPlugin : Plugin() {
 
     override fun load() {
         super.load()
+        Log.e("WahanaPlugin", "=== WahanaPlugin load() started ===")
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
 
         providerReceiver = LocationProviderReceiver {
+            Log.e("WahanaPlugin", "Location provider changed")
             emitLocationStatusChanged()
             activity?.runOnUiThread {
                 checkAndEnforce(null)
@@ -128,6 +130,7 @@ class WahanaPluginPlugin : Plugin() {
 
     override fun handleOnResume() {
         super.handleOnResume()
+        Log.e("WahanaPlugin", "=== WahanaPlugin handleOnResume() ===")
         isPermissionRequestPending = false
         activity?.runOnUiThread {
             checkAndEnforce(null)
@@ -214,29 +217,28 @@ class WahanaPluginPlugin : Plugin() {
         try {
             val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager
             if (appOps != null) {
-                val isAllowed = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    val mode = appOps.unsafeCheckOpNoThrow(
+                val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    appOps.unsafeCheckOpNoThrow(
                         AppOpsManager.OPSTR_FINE_LOCATION,
                         Process.myUid(),
                         context.packageName
                     )
-                    mode == AppOpsManager.MODE_ALLOWED || mode == AppOpsManager.MODE_FOREGROUND
                 } else {
                     @Suppress("DEPRECATION")
-                    val mode = appOps.checkOpNoThrow(
+                    appOps.checkOpNoThrow(
                         AppOpsManager.OPSTR_FINE_LOCATION,
                         Process.myUid(),
                         context.packageName
                     )
-                    mode == AppOpsManager.MODE_ALLOWED
                 }
-                Log.d("WahanaPlugin", "isLocationPermissionGranted check: runtimeFine=$runtimeFine, isAllowed=$isAllowed")
+                val isAllowed = mode == AppOpsManager.MODE_ALLOWED || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && mode == AppOpsManager.MODE_FOREGROUND)
+                Log.e("WahanaPlugin", "isLocationPermissionGranted: runtimeFine=$runtimeFine, opMode=$mode, isAllowed=$isAllowed")
                 if (!isAllowed) {
                     return false
                 }
             }
         } catch (e: Exception) {
-            Log.w("WahanaPlugin", "AppOps check exception: ${e.message}")
+            Log.e("WahanaPlugin", "AppOps check exception: ${e.message}")
         }
 
         return true
@@ -562,6 +564,7 @@ class WahanaPluginPlugin : Plugin() {
 
     private fun checkAndEnforce(call: PluginCall?) {
         val currentActivity = activity
+        Log.e("WahanaPlugin", "checkAndEnforce: activity=$currentActivity, isPermissionGranted=${isLocationPermissionGranted()}")
         if (currentActivity == null || currentActivity.isFinishing) return
 
         val title = call?.getString("title") ?: "Akses Lokasi Wajib Aktif"
@@ -725,13 +728,14 @@ class WahanaPluginPlugin : Plugin() {
         onAction: () -> Unit
     ) {
         val currentActivity = activity ?: return
+        Log.e("WahanaPlugin", "showNativeGatingDialog: title=$title, message=$message, activity=$currentActivity")
         if (currentActivity.isFinishing) return
 
         currentActivity.runOnUiThread {
             if (gatingDialog?.isShowing == true) {
                 gatingDialog?.dismiss()
             }
-            gatingDialog = android.app.AlertDialog.Builder(currentActivity)
+            gatingDialog = androidx.appcompat.app.AlertDialog.Builder(currentActivity)
                 .setTitle(title)
                 .setMessage(message)
                 .setCancelable(false)
