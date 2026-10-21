@@ -67,7 +67,7 @@ function updateStatusUI(status) {
         gatingIcon.innerText = '🛡️';
         gatingTitle.innerText = 'Manipulasi Lokasi Terdeteksi!';
         gatingDesc.innerText =
-          'Aplikasi Fake GPS / Mock Location terdeteksi aktif. Matikan aplikasi pemalsu lokasi untuk melanjutkan transaksi.';
+          'Aplikasi Fake GPS / Mock Location terdeteksi aktif. Matikan aplikasi pemalsu lokasi untuk menggunakan aplikasi ini.';
         if (btnFixGps) btnFixGps.style.display = 'none';
         if (btnFixPerm) btnFixPerm.style.display = 'none';
       } else if (!status.enabled) {

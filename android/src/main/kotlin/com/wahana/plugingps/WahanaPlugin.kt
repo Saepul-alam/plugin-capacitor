@@ -72,16 +72,9 @@ class WahanaPlugin {
     }
 
     /**
-     * Checks if the device environment is compromised by mock location settings,
-     * installed mock applications, or root/hooking frameworks.
+     * Checks if the device environment is compromised by root/hooking frameworks.
      */
     fun isSecurityCompromised(context: Context): Boolean {
-        if (isSystemMockProviderActive(context)) {
-            return true
-        }
-        if (hasMockLocationAppsInstalled(context)) {
-            return true
-        }
         if (isHookingFrameworkDetected()) {
             return true
         }
@@ -90,22 +83,23 @@ class WahanaPlugin {
 
     /**
      * Comprehensive multi-layer detection for Fake GPS / Mock Location.
-     * Evaluates Location object flags, AppOps mock provider status,
-     * installed mock applications, and root/hooking frameworks.
+     * Evaluates Location object flags, real-time provider status,
+     * cross-provider discrepancy, and root/hooking frameworks.
+     * Blocks when Fake GPS is ACTIVELY SPOOFING / BEING USED.
      */
     fun isLocationMock(context: Context, location: Location?): Boolean {
-        // 1. Direct Location Object Inspection
+        // 1. Direct Location Object Inspection (Kernel/OS level mock indicator)
         if (location != null && isLocationObjectMock(location)) {
             return true
         }
 
-        // 2. Static Security Compromise Check (AppOps, Mock apps, Root/Hooking)
-        if (isSecurityCompromised(context)) {
+        // 2. Cross-Provider Discrepancy (GPS vs Network Cell Tower)
+        if (location != null && isProviderDiscrepant(context, location)) {
             return true
         }
 
-        // 3. Cross-Provider Discrepancy (GPS vs Network Cell Tower)
-        if (location != null && isProviderDiscrepant(context, location)) {
+        // 3. Hooking / Root Framework Inspection (Smali Patcher, LSPosed, Magisk)
+        if (isHookingFrameworkDetected()) {
             return true
         }
 

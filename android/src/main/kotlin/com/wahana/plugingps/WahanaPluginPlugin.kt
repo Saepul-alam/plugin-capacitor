@@ -58,6 +58,11 @@ class WahanaPluginPlugin : Plugin() {
                 activity?.runOnUiThread {
                     showMockGatingDialog()
                 }
+            } else {
+                if (gatingDialog?.isShowing == true) {
+                    dismissNativeGatingDialog()
+                    emitLocationStatusChanged()
+                }
             }
         }
     }
@@ -212,12 +217,12 @@ class WahanaPluginPlugin : Plugin() {
             return
         }
 
-        if (implementation.isSecurityCompromised(context)) {
+        if (implementation.isHookingFrameworkDetected()) {
             activity?.runOnUiThread {
                 showMockGatingDialog()
             }
             emitLocationStatusChanged()
-            call.reject("Aplikasi Fake GPS terdeteksi aktif")
+            call.reject("Aplikasi Fake GPS / Hooking terdeteksi aktif")
             return
         }
 
@@ -242,6 +247,7 @@ class WahanaPluginPlugin : Plugin() {
                         call.reject("Aplikasi Fake GPS terdeteksi aktif")
                         return@addOnSuccessListener
                     }
+                    dismissNativeGatingDialog()
                     call.resolve(implementation.formatLocation(context, location))
                 } else {
                     fusedLocationClient.lastLocation.addOnSuccessListener { fallback: Location? ->
@@ -255,6 +261,7 @@ class WahanaPluginPlugin : Plugin() {
                                 call.reject("Aplikasi Fake GPS terdeteksi aktif")
                                 return@addOnSuccessListener
                             }
+                            dismissNativeGatingDialog()
                             call.resolve(implementation.formatLocation(context, fallback))
                         } else {
                             call.reject("Unable to get current location")
@@ -282,12 +289,12 @@ class WahanaPluginPlugin : Plugin() {
             return
         }
 
-        if (implementation.isSecurityCompromised(context)) {
+        if (implementation.isHookingFrameworkDetected()) {
             activity?.runOnUiThread {
                 showMockGatingDialog()
             }
             emitLocationStatusChanged()
-            call.reject("Aplikasi Fake GPS terdeteksi aktif")
+            call.reject("Aplikasi Fake GPS / Hooking terdeteksi aktif")
             return
         }
 
@@ -324,6 +331,7 @@ class WahanaPluginPlugin : Plugin() {
                     return
                 }
 
+                dismissNativeGatingDialog()
                 val posData = implementation.formatLocation(context, location)
                 notifyListeners("location", posData)
                 call.resolve(posData)
@@ -469,7 +477,7 @@ class WahanaPluginPlugin : Plugin() {
         val msgGps = call?.getString("messageGpsDisabled")
             ?: "Layanan GPS perangkat Anda sedang mati. Aktifkan GPS untuk dapat menggunakan aplikasi."
         val msgMock = call?.getString("messageMockDetected")
-            ?: "Aplikasi pemalsu lokasi (Fake GPS) terdeteksi aktif. Matikan Fake GPS untuk melanjutkan transaksi."
+            ?: "Aplikasi pemalsu lokasi (Fake GPS) terdeteksi aktif. Matikan Fake GPS untuk menggunakan aplikasi ini."
         val actionLabel = call?.getString("actionButtonLabel")
         val exitLabel = call?.getString("exitButtonLabel") ?: "Keluar"
 
@@ -512,18 +520,10 @@ class WahanaPluginPlugin : Plugin() {
             return
         }
 
-        // 3. Cek manipulasi Fake GPS / Mock Provider / Root / AppOps
-        val isMock = implementation.isLocationMock(context, lastKnownLocation)
+        // 3. Cek manipulasi Fake GPS yang aktif pada lastKnownLocation
+        val isMock = lastKnownLocation != null && implementation.isLocationMock(context, lastKnownLocation)
         if (isMock) {
-            showNativeGatingDialog(
-                title = "Fake GPS Terdeteksi",
-                message = msgMock,
-                actionText = actionLabel ?: "Coba Lagi",
-                exitText = exitLabel,
-                onAction = {
-                    checkAndEnforce(call)
-                }
-            )
+            showMockGatingDialog()
             val status = implementation.calculateStatus(enabled = true, granted = true, isMock = true)
             notifyListeners("locationStatusChanged", status)
             call?.resolve(status)
@@ -538,16 +538,11 @@ class WahanaPluginPlugin : Plugin() {
                         lastKnownLocation = loc
                         if (implementation.isLocationMock(context, loc)) {
                             activity?.runOnUiThread {
-                                showNativeGatingDialog(
-                                    title = "Fake GPS Terdeteksi",
-                                    message = msgMock,
-                                    actionText = actionLabel ?: "Coba Lagi",
-                                    exitText = exitLabel,
-                                    onAction = {
-                                        checkAndEnforce(call)
-                                    }
-                                )
+                                showMockGatingDialog()
                             }
+                            emitLocationStatusChanged()
+                        } else {
+                            dismissNativeGatingDialog()
                             emitLocationStatusChanged()
                         }
                     }
@@ -556,7 +551,13 @@ class WahanaPluginPlugin : Plugin() {
             }
         }
 
-        // 5. Semua valid: tutup dialog native gating jika ada
+        // 5. Cek apakah ada hooking/root
+        if (implementation.isHookingFrameworkDetected()) {
+            showMockGatingDialog()
+            return
+        }
+
+        // 6. Semua valid dan Fake GPS tidak sedang aktif: tutup dialog native gating jika ada
         dismissNativeGatingDialog()
         val status = implementation.calculateStatus(enabled = true, granted = true, isMock = false)
         notifyListeners("locationStatusChanged", status)
@@ -570,7 +571,24 @@ class WahanaPluginPlugin : Plugin() {
             actionText = "Coba Lagi",
             exitText = "Keluar",
             onAction = {
-                checkAndEnforce(null)
+                try {
+                    fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
+                        if (loc != null) {
+                            lastKnownLocation = loc
+                        }
+                        activity?.runOnUiThread {
+                            checkAndEnforce(null)
+                        }
+                    }.addOnFailureListener {
+                        activity?.runOnUiThread {
+                            checkAndEnforce(null)
+                        }
+                    }
+                } catch (_: Exception) {
+                    activity?.runOnUiThread {
+                        checkAndEnforce(null)
+                    }
+                }
             }
         )
     }
