@@ -2,6 +2,7 @@ package com.wahana.plugingps
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.AppOpsManager
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -11,6 +12,7 @@ import android.location.LocationManager
 import android.net.Uri
 import android.os.Build
 import android.os.Looper
+import android.os.Process
 import android.provider.Settings
 import androidx.core.content.ContextCompat
 import com.getcapacitor.JSObject
@@ -195,20 +197,81 @@ class WahanaPluginPlugin : Plugin() {
 
     /**
      * Strictly requires ACCESS_FINE_LOCATION (Full / Precise Location).
-     * Approximated location (COARSE only) is rejected to enforce full precision.
+     * Approximated location (COARSE only) or disabled "Use precise location" (AppOps MODE_IGNORED)
+     * is rejected to enforce full precision.
      */
     private fun isLocationPermissionGranted(): Boolean {
-        return ContextCompat.checkSelfPermission(
+        val runtimeFine = ContextCompat.checkSelfPermission(
             context,
             Manifest.permission.ACCESS_FINE_LOCATION
         ) == PackageManager.PERMISSION_GRANTED
+
+        if (!runtimeFine) return false
+
+        // On Android 12+ (and Q+), verify AppOps OPSTR_FINE_LOCATION.
+        // If the user toggles off "Use precise location" in app info settings,
+        // runtime permission might stay granted but AppOp becomes MODE_IGNORED.
+        try {
+            val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager
+            if (appOps != null) {
+                val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    appOps.unsafeCheckOpNoThrow(
+                        AppOpsManager.OPSTR_FINE_LOCATION,
+                        Process.myUid(),
+                        context.packageName
+                    )
+                } else {
+                    @Suppress("DEPRECATION")
+                    appOps.checkOpNoThrow(
+                        AppOpsManager.OPSTR_FINE_LOCATION,
+                        Process.myUid(),
+                        context.packageName
+                    )
+                }
+                if (mode != AppOpsManager.MODE_ALLOWED) {
+                    return false
+                }
+            }
+        } catch (_: Exception) {
+            // Fallback to runtime permission result
+        }
+
+        return true
     }
 
     private fun isCoarseLocationGranted(): Boolean {
-        return ContextCompat.checkSelfPermission(
+        val runtimeCoarse = ContextCompat.checkSelfPermission(
             context,
             Manifest.permission.ACCESS_COARSE_LOCATION
         ) == PackageManager.PERMISSION_GRANTED
+
+        if (!runtimeCoarse) return false
+
+        try {
+            val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager
+            if (appOps != null) {
+                val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    appOps.unsafeCheckOpNoThrow(
+                        AppOpsManager.OPSTR_COARSE_LOCATION,
+                        Process.myUid(),
+                        context.packageName
+                    )
+                } else {
+                    @Suppress("DEPRECATION")
+                    appOps.checkOpNoThrow(
+                        AppOpsManager.OPSTR_COARSE_LOCATION,
+                        Process.myUid(),
+                        context.packageName
+                    )
+                }
+                if (mode != AppOpsManager.MODE_ALLOWED) {
+                    return false
+                }
+            }
+        } catch (_: Exception) {
+        }
+
+        return true
     }
 
     @SuppressLint("MissingPermission")
