@@ -47,6 +47,7 @@ class WahanaPluginPlugin : Plugin() {
     private var lastKnownLocation: Location? = null
     private var gatingDialog: android.app.AlertDialog? = null
     private var isPermissionRequestPending = false
+    private var hasRequestedPermissionsOnce = false
 
     private val securityLocationCallback = object : LocationCallback() {
         override fun onLocationResult(result: LocationResult) {
@@ -192,16 +193,22 @@ class WahanaPluginPlugin : Plugin() {
         }
     }
 
+    /**
+     * Strictly requires ACCESS_FINE_LOCATION (Full / Precise Location).
+     * Approximated location (COARSE only) is rejected to enforce full precision.
+     */
     private fun isLocationPermissionGranted(): Boolean {
-        val fine = ContextCompat.checkSelfPermission(
+        return ContextCompat.checkSelfPermission(
             context,
             Manifest.permission.ACCESS_FINE_LOCATION
         ) == PackageManager.PERMISSION_GRANTED
-        val coarse = ContextCompat.checkSelfPermission(
+    }
+
+    private fun isCoarseLocationGranted(): Boolean {
+        return ContextCompat.checkSelfPermission(
             context,
             Manifest.permission.ACCESS_COARSE_LOCATION
         ) == PackageManager.PERMISSION_GRANTED
-        return fine || coarse
     }
 
     @SuppressLint("MissingPermission")
@@ -417,14 +424,22 @@ class WahanaPluginPlugin : Plugin() {
         super.handleRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == REQUEST_LOCATION_PERMISSION) {
             isPermissionRequestPending = false
+            hasRequestedPermissionsOnce = true
             emitLocationStatusChanged()
-            val granted = isLocationPermissionGranted()
+            val fineGranted = isLocationPermissionGranted()
             val saved = try { savedCall } catch (_: Exception) { null }
 
-            if (!granted) {
+            if (!fineGranted) {
+                val isCoarseOnly = isCoarseLocationGranted()
+                val messageText = if (isCoarseOnly) {
+                    "Aplikasi Wahana SWB membutuhkan akses izin lokasi penuh (presisi/tepat). Anda saat ini hanya memberikan izin perkiraan (approximate). Silakan ubah menjadi 'Lokasi Tepat' di Pengaturan Aplikasi untuk melanjutkan."
+                } else {
+                    "Aplikasi Wahana SWB tidak dapat digunakan tanpa izin lokasi penuh (presisi/tepat). Silakan aktifkan izin lokasi di Pengaturan Aplikasi untuk melanjutkan."
+                }
+
                 showNativeGatingDialog(
-                    title = "Izin Lokasi Diperlukan",
-                    message = "Aplikasi Wahana SWB tidak dapat digunakan tanpa izin lokasi presisi. Silakan berikan izin di Pengaturan Aplikasi untuk melanjutkan.",
+                    title = "Izin Lokasi Penuh Diperlukan",
+                    message = messageText,
                     actionText = "Buka Pengaturan",
                     exitText = "Keluar",
                     onAction = {
@@ -473,7 +488,7 @@ class WahanaPluginPlugin : Plugin() {
 
         val title = call?.getString("title") ?: "Akses Lokasi Wajib Aktif"
         val msgDenied = call?.getString("messagePermissionDenied")
-            ?: "Aplikasi Wahana SWB membutuhkan izin lokasi presisi agar dapat digunakan. Silakan berikan izin untuk melanjutkan."
+            ?: "Aplikasi Wahana SWB membutuhkan izin lokasi presisi (akses penuh) agar dapat digunakan. Silakan berikan izin untuk melanjutkan."
         val msgGps = call?.getString("messageGpsDisabled")
             ?: "Layanan GPS perangkat Anda sedang mati. Aktifkan GPS untuk dapat menggunakan aplikasi."
         val msgMock = call?.getString("messageMockDetected")
@@ -481,22 +496,53 @@ class WahanaPluginPlugin : Plugin() {
         val actionLabel = call?.getString("actionButtonLabel")
         val exitLabel = call?.getString("exitButtonLabel") ?: "Keluar"
 
-        // 1. Cek izin lokasi
+        // 1. Cek izin lokasi penuh (ACCESS_FINE_LOCATION)
         if (!isLocationPermissionGranted()) {
             if (isPermissionRequestPending) {
                 return
             }
-            isPermissionRequestPending = true
-            if (call != null) {
-                saveCall(call)
+            if (!hasRequestedPermissionsOnce && !isCoarseLocationGranted()) {
+                isPermissionRequestPending = true
+                if (call != null) {
+                    saveCall(call)
+                }
+                pluginRequestPermissions(
+                    arrayOf(
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                    ),
+                    REQUEST_LOCATION_PERMISSION
+                )
+                return
             }
-            pluginRequestPermissions(
-                arrayOf(
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION
-                ),
-                REQUEST_LOCATION_PERMISSION
+
+            val isCoarseOnly = isCoarseLocationGranted()
+            val messageText = if (isCoarseOnly) {
+                "Aplikasi Wahana SWB membutuhkan akses izin lokasi penuh (presisi/tepat). Anda saat ini hanya memberikan izin perkiraan (approximate). Silakan ubah menjadi 'Lokasi Tepat' di Pengaturan Aplikasi untuk melanjutkan."
+            } else {
+                msgDenied
+            }
+
+            showNativeGatingDialog(
+                title = "Izin Lokasi Penuh Diperlukan",
+                message = messageText,
+                actionText = "Buka Pengaturan",
+                exitText = exitLabel,
+                onAction = {
+                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                        data = Uri.fromParts("package", context.packageName, null)
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    }
+                    context.startActivity(intent)
+                }
             )
+            val status = implementation.calculateStatus(
+                enabled = implementation.isLocationEnabled(context),
+                granted = false,
+                isMock = false
+            )
+            notifyListeners("locationStatusChanged", status)
+            call?.resolve(status)
             return
         }
 
