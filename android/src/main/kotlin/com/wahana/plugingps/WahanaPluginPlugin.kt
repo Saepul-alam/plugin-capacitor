@@ -52,6 +52,14 @@ class WahanaPluginPlugin : Plugin() {
     private var isPermissionRequestPending = false
     private var hasRequestedPermissionsOnce = false
 
+    private enum class GatingReason {
+        NONE,
+        PERMISSION_DENIED,
+        GPS_DISABLED,
+        MOCK_DETECTED
+    }
+    private var currentGatingReason = GatingReason.NONE
+
     private val securityLocationCallback = object : LocationCallback() {
         override fun onLocationResult(result: LocationResult) {
             val location = result.lastLocation ?: return
@@ -63,9 +71,11 @@ class WahanaPluginPlugin : Plugin() {
                     showMockGatingDialog()
                 }
             } else {
-                if (gatingDialog?.isShowing == true) {
-                    dismissNativeGatingDialog()
-                    emitLocationStatusChanged()
+                if (currentGatingReason == GatingReason.MOCK_DETECTED) {
+                    if (isLocationPermissionGranted() && implementation.isLocationEnabled(context)) {
+                        dismissNativeGatingDialog()
+                        emitLocationStatusChanged()
+                    }
                 }
             }
         }
@@ -518,6 +528,7 @@ class WahanaPluginPlugin : Plugin() {
                 }
 
                 showNativeGatingDialog(
+                    reason = GatingReason.PERMISSION_DENIED,
                     title = "Izin Lokasi Penuh Diperlukan",
                     message = messageText,
                     actionText = "Buka Pengaturan",
@@ -605,6 +616,7 @@ class WahanaPluginPlugin : Plugin() {
             }
 
             showNativeGatingDialog(
+                reason = GatingReason.PERMISSION_DENIED,
                 title = "Izin Lokasi Penuh Diperlukan",
                 message = messageText,
                 actionText = "Buka Pengaturan",
@@ -630,6 +642,7 @@ class WahanaPluginPlugin : Plugin() {
         // 2. Cek apakah GPS perangkat mati
         if (!implementation.isLocationEnabled(context)) {
             showNativeGatingDialog(
+                reason = GatingReason.GPS_DISABLED,
                 title = title,
                 message = msgGps,
                 actionText = actionLabel ?: "Nyalakan GPS",
@@ -669,8 +682,10 @@ class WahanaPluginPlugin : Plugin() {
                             }
                             emitLocationStatusChanged()
                         } else {
-                            dismissNativeGatingDialog()
-                            emitLocationStatusChanged()
+                            if (isLocationPermissionGranted() && implementation.isLocationEnabled(context)) {
+                                dismissNativeGatingDialog()
+                                emitLocationStatusChanged()
+                            }
                         }
                     }
                 }
@@ -693,6 +708,7 @@ class WahanaPluginPlugin : Plugin() {
 
     private fun showMockGatingDialog() {
         showNativeGatingDialog(
+            reason = GatingReason.MOCK_DETECTED,
             title = "Fake GPS Terdeteksi",
             message = "Aplikasi pemalsu lokasi (Fake GPS) terdeteksi aktif. Matikan Fake GPS untuk melanjutkan transaksi.",
             actionText = "Coba Lagi",
@@ -721,6 +737,7 @@ class WahanaPluginPlugin : Plugin() {
     }
 
     private fun showNativeGatingDialog(
+        reason: GatingReason,
         title: String,
         message: String,
         actionText: String,
@@ -728,8 +745,10 @@ class WahanaPluginPlugin : Plugin() {
         onAction: () -> Unit
     ) {
         val currentActivity = activity ?: return
-        Log.e("WahanaPlugin", "showNativeGatingDialog: title=$title, message=$message, activity=$currentActivity")
+        Log.e("WahanaPlugin", "showNativeGatingDialog [reason=$reason]: title=$title, message=$message, activity=$currentActivity")
         if (currentActivity.isFinishing) return
+
+        currentGatingReason = reason
 
         currentActivity.runOnUiThread {
             if (gatingDialog?.isShowing == true) {
@@ -753,6 +772,7 @@ class WahanaPluginPlugin : Plugin() {
     }
 
     private fun dismissNativeGatingDialog() {
+        currentGatingReason = GatingReason.NONE
         activity?.runOnUiThread {
             if (gatingDialog?.isShowing == true) {
                 gatingDialog?.dismiss()
