@@ -48,6 +48,20 @@ class WahanaPluginPlugin : Plugin() {
     private var gatingDialog: android.app.AlertDialog? = null
     private var isPermissionRequestPending = false
 
+    private val securityLocationCallback = object : LocationCallback() {
+        override fun onLocationResult(result: LocationResult) {
+            val location = result.lastLocation ?: return
+            lastKnownLocation = location
+            val isMock = implementation.isLocationMock(context, location)
+            if (isMock) {
+                emitLocationStatusChanged()
+                activity?.runOnUiThread {
+                    showMockGatingDialog()
+                }
+            }
+        }
+    }
+
     override fun load() {
         super.load()
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
@@ -66,10 +80,16 @@ class WahanaPluginPlugin : Plugin() {
             context.registerReceiver(providerReceiver, filter)
         }
 
-        // Otomatis cek izin lokasi, GPS, dan Fake GPS seketika saat plugin dimuat
+        // Start real-time security monitor
+        startSecurityLocationWatch()
+
+        // Check GPS, permission, and Fake GPS immediately
         activity?.runOnUiThread {
             checkAndEnforce(null)
         }
+
+        // Inject safety hook into webview
+        injectGeolocationSafetyHook()
     }
 
     override fun handleOnDestroy() {
@@ -82,8 +102,16 @@ class WahanaPluginPlugin : Plugin() {
             providerReceiver = null
         }
 
+        try {
+            fusedLocationClient.removeLocationUpdates(securityLocationCallback)
+        } catch (_: Exception) {
+        }
+
         for ((_, callback) in watchCallbacks) {
-            fusedLocationClient.removeLocationUpdates(callback)
+            try {
+                fusedLocationClient.removeLocationUpdates(callback)
+            } catch (_: Exception) {
+            }
         }
         watchCallbacks.clear()
         super.handleOnDestroy()
@@ -95,12 +123,67 @@ class WahanaPluginPlugin : Plugin() {
             return
         }
         activity?.runOnUiThread {
-            if (isLocationPermissionGranted() && implementation.isLocationEnabled(context) && !implementation.isLocationMock(lastKnownLocation)) {
-                dismissNativeGatingDialog()
-                emitLocationStatusChanged()
-            } else if (gatingDialog?.isShowing == true || !implementation.isLocationEnabled(context) || !isLocationPermissionGranted()) {
-                checkAndEnforce(null)
+            checkAndEnforce(null)
+        }
+        startSecurityLocationWatch()
+        injectGeolocationSafetyHook()
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun startSecurityLocationWatch() {
+        if (!isLocationPermissionGranted()) return
+        try {
+            val request = LocationRequest.create().apply {
+                priority = LocationRequest.PRIORITY_HIGH_ACCURACY
+                interval = 2000L
+                fastestInterval = 1000L
+                smallestDisplacement = 0f
             }
+            fusedLocationClient.requestLocationUpdates(
+                request,
+                securityLocationCallback,
+                Looper.getMainLooper()
+            )
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun injectGeolocationSafetyHook() {
+        try {
+            val webView = bridge?.webView ?: return
+            val jsHook = """
+                (function() {
+                    if (window.__wahanaGeoHooked) return;
+                    window.__wahanaGeoHooked = true;
+                    if (!navigator.geolocation) return;
+                    var _origGetCurrent = navigator.geolocation.getCurrentPosition.bind(navigator.geolocation);
+                    navigator.geolocation.getCurrentPosition = function(success, error, options) {
+                        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.WahanaPlugin) {
+                            window.Capacitor.Plugins.WahanaPlugin.checkLocationStatus().then(function(res) {
+                                if (res && (!res.usable || res.isMock)) {
+                                    if (error) {
+                                        error({
+                                            code: 1,
+                                            message: 'Fake GPS terdeteksi aktif. Matikan Fake GPS untuk melanjutkan.'
+                                        });
+                                    }
+                                } else {
+                                    _origGetCurrent(success, error, options);
+                                }
+                            }).catch(function() {
+                                _origGetCurrent(success, error, options);
+                            });
+                        } else {
+                            _origGetCurrent(success, error, options);
+                        }
+                    };
+                })();
+            """.trimIndent()
+
+            webView.post {
+                webView.evaluateJavascript(jsHook, null)
+            }
+        } catch (_: Exception) {
         }
     }
 
@@ -129,6 +212,15 @@ class WahanaPluginPlugin : Plugin() {
             return
         }
 
+        if (implementation.isSecurityCompromised(context)) {
+            activity?.runOnUiThread {
+                showMockGatingDialog()
+            }
+            emitLocationStatusChanged()
+            call.reject("Aplikasi Fake GPS terdeteksi aktif")
+            return
+        }
+
         val enableHighAccuracy = call.getBoolean("enableHighAccuracy", true) ?: true
         val priority = if (enableHighAccuracy) {
             LocationRequest.PRIORITY_HIGH_ACCURACY
@@ -142,18 +234,28 @@ class WahanaPluginPlugin : Plugin() {
             .addOnSuccessListener { location: Location? ->
                 if (location != null) {
                     lastKnownLocation = location
-                    if (implementation.isLocationMock(location)) {
+                    if (implementation.isLocationMock(context, location)) {
+                        activity?.runOnUiThread {
+                            showMockGatingDialog()
+                        }
                         emitLocationStatusChanged()
+                        call.reject("Aplikasi Fake GPS terdeteksi aktif")
+                        return@addOnSuccessListener
                     }
-                    call.resolve(implementation.formatLocation(location))
+                    call.resolve(implementation.formatLocation(context, location))
                 } else {
                     fusedLocationClient.lastLocation.addOnSuccessListener { fallback: Location? ->
                         if (fallback != null) {
                             lastKnownLocation = fallback
-                            if (implementation.isLocationMock(fallback)) {
+                            if (implementation.isLocationMock(context, fallback)) {
+                                activity?.runOnUiThread {
+                                    showMockGatingDialog()
+                                }
                                 emitLocationStatusChanged()
+                                call.reject("Aplikasi Fake GPS terdeteksi aktif")
+                                return@addOnSuccessListener
                             }
-                            call.resolve(implementation.formatLocation(fallback))
+                            call.resolve(implementation.formatLocation(context, fallback))
                         } else {
                             call.reject("Unable to get current location")
                         }
@@ -177,6 +279,15 @@ class WahanaPluginPlugin : Plugin() {
 
         if (!implementation.isLocationEnabled(context)) {
             call.reject("Location services (GPS) are disabled")
+            return
+        }
+
+        if (implementation.isSecurityCompromised(context)) {
+            activity?.runOnUiThread {
+                showMockGatingDialog()
+            }
+            emitLocationStatusChanged()
+            call.reject("Aplikasi Fake GPS terdeteksi aktif")
             return
         }
 
@@ -204,15 +315,18 @@ class WahanaPluginPlugin : Plugin() {
             override fun onLocationResult(locationResult: LocationResult) {
                 val location = locationResult.lastLocation ?: return
                 lastKnownLocation = location
-                val isMock = implementation.isLocationMock(location)
-                val posData = implementation.formatLocation(location)
+                val isMock = implementation.isLocationMock(context, location)
+                if (isMock) {
+                    activity?.runOnUiThread {
+                        showMockGatingDialog()
+                    }
+                    emitLocationStatusChanged()
+                    return
+                }
 
+                val posData = implementation.formatLocation(context, location)
                 notifyListeners("location", posData)
                 call.resolve(posData)
-
-                if (isMock) {
-                    emitLocationStatusChanged()
-                }
             }
         }
 
@@ -256,7 +370,7 @@ class WahanaPluginPlugin : Plugin() {
     fun checkLocationStatus(call: PluginCall) {
         val enabled = implementation.isLocationEnabled(context)
         val granted = isLocationPermissionGranted()
-        val isMock = implementation.isLocationMock(lastKnownLocation)
+        val isMock = implementation.isLocationMock(context, lastKnownLocation)
         call.resolve(implementation.calculateStatus(enabled, granted, isMock))
     }
 
@@ -300,7 +414,6 @@ class WahanaPluginPlugin : Plugin() {
             val saved = try { savedCall } catch (_: Exception) { null }
 
             if (!granted) {
-                // Izin DITOLAK! Langsung kunci layar dengan Native AlertDialog agar aplikasi tidak bisa dipakai
                 showNativeGatingDialog(
                     title = "Izin Lokasi Diperlukan",
                     message = "Aplikasi Wahana SWB tidak dapat digunakan tanpa izin lokasi presisi. Silakan berikan izin di Pengaturan Aplikasi untuk melanjutkan.",
@@ -314,10 +427,14 @@ class WahanaPluginPlugin : Plugin() {
                         context.startActivity(intent)
                     }
                 )
-                val status = implementation.calculateStatus(enabled = implementation.isLocationEnabled(context), granted = false, isMock = false)
+                val status = implementation.calculateStatus(
+                    enabled = implementation.isLocationEnabled(context),
+                    granted = false,
+                    isMock = false
+                )
                 saved?.resolve(status)
             } else {
-                // Izin DIBERIKAN! Lanjut cek status GPS & Fake GPS
+                startSecurityLocationWatch()
                 checkAndEnforce(saved)
             }
             if (saved != null) {
@@ -395,11 +512,11 @@ class WahanaPluginPlugin : Plugin() {
             return
         }
 
-        // 3. Cek manipulasi Fake GPS
-        val isMock = implementation.isLocationMock(lastKnownLocation)
+        // 3. Cek manipulasi Fake GPS / Mock Provider / Root / AppOps
+        val isMock = implementation.isLocationMock(context, lastKnownLocation)
         if (isMock) {
             showNativeGatingDialog(
-                title = title,
+                title = "Fake GPS Terdeteksi",
                 message = msgMock,
                 actionText = actionLabel ?: "Coba Lagi",
                 exitText = exitLabel,
@@ -413,11 +530,49 @@ class WahanaPluginPlugin : Plugin() {
             return
         }
 
-        // 4. Semua valid: tutup dialog native gating jika ada
+        // 4. Jika lastKnownLocation masih null, coba ambil lastLocation secara asynchronous untuk verifikasi
+        if (lastKnownLocation == null) {
+            try {
+                fusedLocationClient.lastLocation.addOnSuccessListener { loc: Location? ->
+                    if (loc != null) {
+                        lastKnownLocation = loc
+                        if (implementation.isLocationMock(context, loc)) {
+                            activity?.runOnUiThread {
+                                showNativeGatingDialog(
+                                    title = "Fake GPS Terdeteksi",
+                                    message = msgMock,
+                                    actionText = actionLabel ?: "Coba Lagi",
+                                    exitText = exitLabel,
+                                    onAction = {
+                                        checkAndEnforce(call)
+                                    }
+                                )
+                            }
+                            emitLocationStatusChanged()
+                        }
+                    }
+                }
+            } catch (_: Exception) {
+            }
+        }
+
+        // 5. Semua valid: tutup dialog native gating jika ada
         dismissNativeGatingDialog()
         val status = implementation.calculateStatus(enabled = true, granted = true, isMock = false)
         notifyListeners("locationStatusChanged", status)
         call?.resolve(status)
+    }
+
+    private fun showMockGatingDialog() {
+        showNativeGatingDialog(
+            title = "Fake GPS Terdeteksi",
+            message = "Aplikasi pemalsu lokasi (Fake GPS) terdeteksi aktif. Matikan Fake GPS untuk melanjutkan transaksi.",
+            actionText = "Coba Lagi",
+            exitText = "Keluar",
+            onAction = {
+                checkAndEnforce(null)
+            }
+        )
     }
 
     private fun showNativeGatingDialog(
@@ -482,7 +637,7 @@ class WahanaPluginPlugin : Plugin() {
     private fun emitLocationStatusChanged() {
         val enabled = implementation.isLocationEnabled(context)
         val granted = isLocationPermissionGranted()
-        val isMock = implementation.isLocationMock(lastKnownLocation)
+        val isMock = implementation.isLocationMock(context, lastKnownLocation)
         notifyListeners("locationStatusChanged", implementation.calculateStatus(enabled, granted, isMock))
     }
 }

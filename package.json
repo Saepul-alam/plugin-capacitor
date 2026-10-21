@@ -20,10 +20,10 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/wahana/capacitor-plugin-wahana.git"
+    "url": ""
   },
   "bugs": {
-    "url": "https://github.com/wahana/capacitor-plugin-wahana/issues"
+    "url": ""
   },
   "keywords": [
     "capacitor",
