@@ -14,6 +14,7 @@ import android.os.Build
 import android.os.Looper
 import android.os.Process
 import android.provider.Settings
+import android.util.Log
 import androidx.core.content.ContextCompat
 import com.getcapacitor.JSObject
 import com.getcapacitor.NativePlugin
@@ -127,9 +128,7 @@ class WahanaPluginPlugin : Plugin() {
 
     override fun handleOnResume() {
         super.handleOnResume()
-        if (isPermissionRequestPending) {
-            return
-        }
+        isPermissionRequestPending = false
         activity?.runOnUiThread {
             checkAndEnforce(null)
         }
@@ -208,32 +207,36 @@ class WahanaPluginPlugin : Plugin() {
 
         if (!runtimeFine) return false
 
-        // On Android 12+ (and Q+), verify AppOps OPSTR_FINE_LOCATION.
-        // If the user toggles off "Use precise location" in app info settings,
-        // runtime permission might stay granted but AppOp becomes MODE_IGNORED.
+        // On Android 10+ (Q+) & 12+, verify AppOps OPSTR_FINE_LOCATION.
+        // In Android, MODE_ALLOWED (0) and MODE_FOREGROUND (4) both mean granted/allowed!
+        // If the user toggles off "Use precise location" in system app settings,
+        // runtime permission stays granted but AppOp becomes MODE_IGNORED.
         try {
             val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager
             if (appOps != null) {
-                val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    appOps.unsafeCheckOpNoThrow(
+                val isAllowed = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    val mode = appOps.unsafeCheckOpNoThrow(
                         AppOpsManager.OPSTR_FINE_LOCATION,
                         Process.myUid(),
                         context.packageName
                     )
+                    mode == AppOpsManager.MODE_ALLOWED || mode == AppOpsManager.MODE_FOREGROUND
                 } else {
                     @Suppress("DEPRECATION")
-                    appOps.checkOpNoThrow(
+                    val mode = appOps.checkOpNoThrow(
                         AppOpsManager.OPSTR_FINE_LOCATION,
                         Process.myUid(),
                         context.packageName
                     )
+                    mode == AppOpsManager.MODE_ALLOWED
                 }
-                if (mode != AppOpsManager.MODE_ALLOWED) {
+                Log.d("WahanaPlugin", "isLocationPermissionGranted check: runtimeFine=$runtimeFine, isAllowed=$isAllowed")
+                if (!isAllowed) {
                     return false
                 }
             }
-        } catch (_: Exception) {
-            // Fallback to runtime permission result
+        } catch (e: Exception) {
+            Log.w("WahanaPlugin", "AppOps check exception: ${e.message}")
         }
 
         return true
@@ -250,21 +253,23 @@ class WahanaPluginPlugin : Plugin() {
         try {
             val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager
             if (appOps != null) {
-                val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    appOps.unsafeCheckOpNoThrow(
+                val isAllowed = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    val mode = appOps.unsafeCheckOpNoThrow(
                         AppOpsManager.OPSTR_COARSE_LOCATION,
                         Process.myUid(),
                         context.packageName
                     )
+                    mode == AppOpsManager.MODE_ALLOWED || mode == AppOpsManager.MODE_FOREGROUND
                 } else {
                     @Suppress("DEPRECATION")
-                    appOps.checkOpNoThrow(
+                    val mode = appOps.checkOpNoThrow(
                         AppOpsManager.OPSTR_COARSE_LOCATION,
                         Process.myUid(),
                         context.packageName
                     )
+                    mode == AppOpsManager.MODE_ALLOWED
                 }
-                if (mode != AppOpsManager.MODE_ALLOWED) {
+                if (!isAllowed) {
                     return false
                 }
             }
@@ -272,6 +277,16 @@ class WahanaPluginPlugin : Plugin() {
         }
 
         return true
+    }
+
+    private fun isAnyRuntimeLocationPermissionGranted(): Boolean {
+        return ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
     }
 
     @SuppressLint("MissingPermission")
@@ -564,7 +579,7 @@ class WahanaPluginPlugin : Plugin() {
             if (isPermissionRequestPending) {
                 return
             }
-            if (!hasRequestedPermissionsOnce && !isCoarseLocationGranted()) {
+            if (!hasRequestedPermissionsOnce && !isAnyRuntimeLocationPermissionGranted()) {
                 isPermissionRequestPending = true
                 if (call != null) {
                     saveCall(call)
